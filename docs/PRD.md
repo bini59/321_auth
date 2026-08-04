@@ -1,6 +1,6 @@
 # 개인 프로젝트 통합 인증 시스템 설계 및 구현 문서
 
-> 대상: `*.[kevin.dev](http://kevin.dev)` 하위 개인 프로젝트들의 통합 로그인 방식: 중앙 auth 서버 + 공유 세션 쿠키 (opaque session ID) 프로바이더: Google, Kakao (소셜 로그인 전용, ID/PW 없음)
+> 대상: `*.[bini59.dev](http://bini59.dev)` 하위 개인 프로젝트들의 통합 로그인 방식: 중앙 auth 서버 + 공유 세션 쿠키 (opaque session ID) 프로바이더: Google, Kakao (소셜 로그인 전용, ID/PW 없음)
 
 ---
 
@@ -9,7 +9,7 @@
 
 | 항목         | 선택                                                     | 이유                                                                 |
 | ---------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
-| SSO 구현 방식  | 공유 쿠키 + 중앙 세션 스토어                                      | 모든 앱이 `.[kevin.dev](http://kevin.dev)` 하위. OIDC provider 자체 구축은 과함 |
+| SSO 구현 방식  | 공유 쿠키 + 중앙 세션 스토어                                      | 모든 앱이 `.[bini59.dev](http://bini59.dev)` 하위. OIDC provider 자체 구축은 과함 |
 | 세션 토큰      | opaque session ID (랜덤 32B)                             | 즉시 무효화 가능. JWT는 이 장점을 버림                                           |
 | 로그인 페이지    | auth 서버가 테마별로 서빙 (패턴 1)                                | 앱이 비밀번호/토큰을 만지지 않음. blast radius 최소                                |
 | 인증 방식      | 소셜 전용 (Google, Kakao)                                  | 비밀번호 해싱/재설정/유출대응 전부 제거                                             |
@@ -32,7 +32,7 @@
 
 ```
                     ┌────────────────────────┐
-                    │   auth.kevin.dev       │
+                    │   auth.bini59.dev       │
                     │  - 로그인 UI (테마별)   │
    Google  ◄───────►│  - OIDC 클라이언트     │
    Kakao   ◄───────►│  - 세션 발급/검증      │
@@ -46,7 +46,7 @@
       ┌────────────────────┴────────────────────┐
       │  /verify 호출 (앱 서버 → auth 서버)      │
  ┌────▼──────┐      ┌───────────┐      ┌────────▼───┐
- │a.kevin.dev│      │b.kevin.dev│      │c.kevin.dev │
+ │a.bini59.dev│      │b.bini59.dev│      │c.bini59.dev │
  │ app_a_db  │      │ app_b_db  │      │ app_c_db   │
  └───────────┘      └───────────┘      └────────────┘
 
@@ -57,11 +57,26 @@ auth 서버의 이중 역할:
 - **밖으로는** Google/Kakao에 대한 OAuth 클라이언트 (RP)
 - **안으로는** 내 앱들에 대한 세션 발급자
 
+### 2.1 배포 인프라 (docker-compose)
+
+이 서버 한 대에서 docker-compose로 전체 스택을 돌린다. 바깥에는 **cloudflared tunnel 하나만** 노출되고, DB·Redis는 compose 내부 네트워크로만 접근한다.
+
+| 서비스     | 역할                             | 포트 노출          |
+| ---------- | -------------------------------- | ----------------- |
+| auth-app   | NestJS auth 서버                 | 없음 (tunnel만)   |
+| postgres   | 인증 DB (auth_db + 앱 DBs)       | 없음              |
+| redis      | 세션 / oauth_state               | 없음              |
+
+- `postgres`, `redis`는 `ports:` 절을 **쓰지 않는다** (외부 노출 금지). 접속은 compose 서비스 이름(`postgres:5432`, `redis:6379`)으로만.
+- 도메인: `auth.bini59.dev` ← cloudflared tunnel. 쿠키 `Domain=.bini59.dev`.
+- named volumes(`pgdata`, `redisdata`) + `pg_dump` 백업 cron.
+- 로컬 개발도 같은 compose를 재사용하되, 프로바이더 dev 앱·호스트(`*.local.bini59.dev`)는 §12를 따른다.
+
 ### 쿠키
 
 ```
 Set-Cookie: sid=<base64url(32 random bytes)>;
-  Domain=.kevin.dev;
+  Domain=.bini59.dev;
   Path=/;
   HttpOnly;
   Secure;
@@ -70,7 +85,7 @@ Set-Cookie: sid=<base64url(32 random bytes)>;
 
 ```
 
-`Domain=.[kevin.dev](http://kevin.dev)` 하나가 전체 SSO를 성립시킴. `SameSite=Lax`여야 프로바이더에서 돌아오는 top-level 리다이렉트에 쿠키가 실림 (`Strict`면 깨짐).
+`Domain=.[bini59.dev](http://bini59.dev)` 하나가 전체 SSO를 성립시킴. `SameSite=Lax`여야 프로바이더에서 돌아오는 top-level 리다이렉트에 쿠키가 실림 (`Strict`면 깨짐).
 
 ---
 
@@ -172,10 +187,10 @@ cached_at            TIMESTAMPTZ
 
 ### 3.3 DB 격리
 
-RDS 인스턴스 하나 + 데이터베이스/유저 분리:
+Postgres 컨테이너 하나 + 데이터베이스/유저 분리:
 
 ```
-kevin-rds
+bini59-pg
 ├── auth_db    (유저: auth_svc)
 ├── app_a_db   (유저: app_a_svc)
 └── app_b_db   (유저: app_b_svc)
@@ -230,8 +245,8 @@ export const PROVIDERS = {
 ### 5.1 redirect URI (프로바이더 콘솔 등록)
 
 ```
-https://auth.kevin.dev/callback/google
-https://auth.kevin.dev/callback/kakao
+https://auth.bini59.dev/callback/google
+https://auth.bini59.dev/callback/kakao
 
 ```
 
@@ -240,8 +255,8 @@ https://auth.kevin.dev/callback/kakao
 개발용은 별도 앱/프로젝트로 분리해서 등록:
 
 ```
-https://auth.local.kevin.dev/callback/google
-https://auth.local.kevin.dev/callback/kakao
+https://auth.local.bini59.dev/callback/google
+https://auth.local.bini59.dev/callback/kakao
 
 ```
 
@@ -323,7 +338,7 @@ export function validateReturnTo(returnTo: string | undefined, client: Client): 
 
 ```
 
-`startsWith('[https://a.kevin.dev](https://a.kevin.dev)')` 방식은 [`https://a.kevin.dev.evil.com`에](https://a.kevin.dev.evil.com에) 뚫림.
+`startsWith('[https://a.bini59.dev](https://a.bini59.dev)')` 방식은 [`https://a.bini59.dev.evil.com`에](https://a.bini59.dev.evil.com에) 뚫림.
 
 ### 7.2 세션 서비스
 
@@ -633,7 +648,7 @@ async callback(@Param('provider') p: string, @Query() q, @Req() req, @Res() res)
   });
 
   res.cookie('sid', sid, {
-    domain: '.kevin.dev',
+    domain: '.bini59.dev',
     path: '/',
     httpOnly: true,
     secure: true,
@@ -717,7 +732,7 @@ async logout(@Req() req, @Res() res, @Query('return_to') returnTo, @Query('clien
   const sid = req.cookies?.sid;
   if (sid) await this.sessions.revoke(sid);
 
-  res.clearCookie('sid', { domain: '.kevin.dev', path: '/' });
+  res.clearCookie('sid', { domain: '.bini59.dev', path: '/' });
 
   const client = await this.clients.find(clientId);
   return res.redirect(302, validateReturnTo(returnTo, client));
@@ -730,7 +745,7 @@ async logoutAll(@Req() req, @Res() res) {
   const sess = sid ? await this.sessions.get(sid) : null;
   if (sess) await this.sessions.revokeAll(sess.userId);
 
-  res.clearCookie('sid', { domain: '.kevin.dev', path: '/' });
+  res.clearCookie('sid', { domain: '.bini59.dev', path: '/' });
   return res.redirect(302, `${process.env.AUTH_ORIGIN}/login`);
 }
 
@@ -763,7 +778,7 @@ Redis 키 하나 지우면 전 서비스에서 즉시 끊김. 이게 opaque sess
 // middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-const AUTH = 'https://auth.kevin.dev';
+const AUTH = 'https://auth.bini59.dev';
 const CLIENT_ID = process.env.CLIENT_ID!;
 const APP_SECRET = process.env.APP_SECRET!;
 
@@ -781,7 +796,7 @@ export async function middleware(req: NextRequest) {
 
   if (r.status === 401) {
     const res = toLogin(req);
-    res.cookies.delete({ name: 'sid', domain: '.kevin.dev', path: '/' });
+    res.cookies.delete({ name: 'sid', domain: '.bini59.dev', path: '/' });
     return res;
   }
   if (!r.ok) {
@@ -846,7 +861,7 @@ async function verifyCached(sid: string) {
 ### 9.1 최초 로그인 (신규 유저)
 
 ```
-1. GET a.kevin.dev/dash                   쿠키 없음
+1. GET a.bini59.dev/dash                   쿠키 없음
 2. 302 → auth/login?client_id=alpha&return_to=...
 3. auth: clients 조회 → 테마 적용된 프로바이더 버튼 렌더
 4. "카카오로 시작" 클릭
@@ -863,7 +878,7 @@ async function verifyCached(sid: string) {
      트랜잭션: users INSERT + identities INSERT
      auto_provision → memberships INSERT
      Redis: sess:{sid} 생성, user_sess:{userId}에 추가
-     Set-Cookie: sid=...; Domain=.kevin.dev
+     Set-Cookie: sid=...; Domain=.bini59.dev
 10. 302 → return_to
 11. 미들웨어 4단계 통과 → 대시보드
 
@@ -872,7 +887,7 @@ async function verifyCached(sid: string) {
 ### 9.2 재방문
 
 ```
-1. GET a.kevin.dev/dash                   sid 쿠키 있음
+1. GET a.bini59.dev/dash                   sid 쿠키 있음
 2. 미들웨어 → auth/verify?client_id=alpha  (cookie 헤더 직접 전달)
 3. Redis 조회 + touch + membership 조회
 4. 200 {userId, email, name, membership:{role:'member', status:'active'}}
@@ -885,7 +900,7 @@ async function verifyCached(sid: string) {
 ### 9.3 다른 앱 첫 진입 (SSO 발동)
 
 ```
-1. GET b.kevin.dev            sid 쿠키가 이미 실려서 감 (.kevin.dev)
+1. GET b.bini59.dev            sid 쿠키가 이미 실려서 감 (.bini59.dev)
 2. auth/verify?client_id=beta
 3. 세션 유효, membership(userId, 'beta') 없음
 4. auto_provision=true   → memberships INSERT → 200 통과
@@ -898,9 +913,9 @@ async function verifyCached(sid: string) {
 ### 9.4 온보딩 (앱 고유 정보 수집)
 
 ```
-1. b.kevin.dev/onboarding 렌더  (auth 정보를 /verify에서 받아 프리필)
+1. b.bini59.dev/onboarding 렌더  (auth 정보를 /verify에서 받아 프리필)
 2. 사용자가 앱 고유 필드 입력 (표시명, 앱별 설정 등)
-3. POST b.kevin.dev/api/onboard
+3. POST b.bini59.dev/api/onboard
      (a) 앱 DB: profiles(user_id, display_name, ...) INSERT
      (b) auth 호출: POST auth/memberships {clientId, userId}   ← S2S
 4. 302 → 원래 목적지
@@ -912,7 +927,7 @@ async function verifyCached(sid: string) {
 ### 9.5 로그아웃
 
 ```
-1. POST a.kevin.dev/logout → 302 auth/logout?client_id=alpha&return_to=...
+1. POST a.bini59.dev/logout → 302 auth/logout?client_id=alpha&return_to=...
 2. auth: sess:{sid} DEL, user_sess에서 SREM, clearCookie
 3. 302 → return_to
 4. b, c에서도 즉시 로그아웃 상태
@@ -968,21 +983,21 @@ async function verifyCached(sid: string) {
 
 ### 12.1 hosts
 
-`localhost:3000`, `localhost:3001`로 개발하면 `Domain=.[kevin.dev](http://kevin.dev)` 쿠키가 안 붙어서 SSO 테스트가 아예 불가능. 처음부터 이렇게 설정:
+`localhost:3000`, `localhost:3001`로 개발하면 `Domain=.[bini59.dev](http://bini59.dev)` 쿠키가 안 붙어서 SSO 테스트가 아예 불가능. 처음부터 이렇게 설정:
 
 ```
 # /etc/hosts
-127.0.0.1  auth.local.kevin.dev
-127.0.0.1  a.local.kevin.dev
-127.0.0.1  b.local.kevin.dev
+127.0.0.1  auth.local.bini59.dev
+127.0.0.1  a.local.bini59.dev
+127.0.0.1  b.local.bini59.dev
 
 ```
 
 쿠키 도메인은 환경변수로:
 
 ```
-COOKIE_DOMAIN=.local.kevin.dev     # dev
-COOKIE_DOMAIN=.kevin.dev           # prod
+COOKIE_DOMAIN=.local.bini59.dev     # dev
+COOKIE_DOMAIN=.bini59.dev           # prod
 
 ```
 
@@ -992,7 +1007,7 @@ COOKIE_DOMAIN=.kevin.dev           # prod
 
 ```bash
 mkcert -install
-mkcert "*.local.kevin.dev" local.kevin.dev
+mkcert "*.local.bini59.dev" local.bini59.dev
 
 ```
 
@@ -1000,7 +1015,7 @@ mkcert "*.local.kevin.dev" local.kevin.dev
 
 ### 12.3 프로바이더 dev 앱
 
-Google, Kakao 각각 개발용 앱을 별도로 만들어 [`https://auth.local.kevin.dev/callback/*`을](https://auth.local.kevin.dev/callback/*을) 등록. 프로덕션 앱과 섞으면 redirect URI 목록이 지저분해지고 실수하기 쉬움.
+Google, Kakao 각각 개발용 앱을 별도로 만들어 [`https://auth.local.bini59.dev/callback/*`을](https://auth.local.bini59.dev/callback/*을) 등록. 프로덕션 앱과 섞으면 redirect URI 목록이 지저분해지고 실수하기 쉬움.
 
 ---
 
@@ -1073,11 +1088,11 @@ Google, Kakao 각각 개발용 앱을 별도로 만들어 [`https://auth.local.k
 
 ```bash
 # auth 서버
-AUTH_ORIGIN=https://auth.kevin.dev
-COOKIE_DOMAIN=.kevin.dev
+AUTH_ORIGIN=https://auth.bini59.dev
+COOKIE_DOMAIN=.bini59.dev
 SESSION_TTL_DAYS=14
 
-DATABASE_URL=postgres://auth_svc:...@kevin-rds/auth_db
+DATABASE_URL=postgres://auth_svc:...@bini59-pg/auth_db
 REDIS_URL=rediss://...
 
 GOOGLE_CLIENT_ID=
@@ -1089,8 +1104,8 @@ KAKAO_CLIENT_SECRET=        # 콘솔에서 활성화한 경우만
 # 각 앱
 CLIENT_ID=alpha
 APP_SECRET=                 # auth의 clients.secret_hash와 대응
-AUTH_ORIGIN=https://auth.kevin.dev
-DATABASE_URL=postgres://app_a_svc:...@kevin-rds/app_a_db
+AUTH_ORIGIN=https://auth.bini59.dev
+DATABASE_URL=postgres://app_a_svc:...@bini59-pg/app_a_db
 
 ```
 
