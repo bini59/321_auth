@@ -15,8 +15,27 @@ env:
 
 jobs:
   # 1) 이미지 빌드/푸시 (GitHub-Hosted ARM)
+  validate:
+    name: Validate workspace
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm typecheck
+
   build-and-push:
     name: Build & Push image to GHCR
+    needs: validate
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     permissions:
@@ -98,11 +117,12 @@ jobs:
           # 새 이미지 받기
           docker compose pull auth-app
           
-          # 중단 없이 재기동 (바뀐 이미지 반영)
-          docker compose up -d auth-app
+          # 새 이미지에서 먼저 마이그레이션 (idempotent). 실패하면 기존 앱을 유지한다.
+          docker compose run --rm auth-app node apps/api/dist/db/migrate.js
 
-          # 마이그레이션 실행 (idempotent, 이미 작동 중인 앱 컨테이너 이용)
-          docker compose exec auth-app node apps/api/dist/db/migrate.js
+          # 마이그레이션 성공 후 새 이미지로 재기동
+          docker compose up -d auth-app --wait
+          curl --fail --silent --show-error http://127.0.0.1:3002/healthz
 
       - name: Cleanup old images
         run: docker image prune -f -a --filter "until=24h"

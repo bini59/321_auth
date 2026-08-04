@@ -12,6 +12,6 @@
     "dev:api": "pnpm --filter @321-auth/api start:dev",
     "dev:admin": "pnpm --filter @321-auth/admin dev",
     "test": "pnpm --filter @321-auth/api test",
-    "typecheck": "pnpm --filter @321-auth/admin typecheck"
+    "typecheck": "pnpm --filter @321-auth/api typecheck && pnpm --filter @321-auth/admin typecheck"
   }
 }

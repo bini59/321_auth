@@ -2,7 +2,7 @@ FROM node:24-alpine AS base
 WORKDIR /app
 
 FROM base AS deps
-RUN corepack enable
+RUN corepack enable && corepack install --global pnpm@10.13.1
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/admin/package.json apps/admin/package.json
