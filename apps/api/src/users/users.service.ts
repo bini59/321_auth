@@ -17,6 +17,25 @@ export class UsersService {
     return { ...u, email_verified: Boolean(u.email_verified) };
   }
 
+  async requestDeletion(userId: string): Promise<void> {
+    const client = await this.db.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO deletion_queue (user_id) VALUES ($1)
+         ON CONFLICT (user_id) DO UPDATE SET requested_at = now()`,
+        [userId],
+      );
+      await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   // PRD §10 — 로그인 상태에서 프로바이더 연결. 병합은 금지.
   async linkIdentity(existingUserId: string, id: NormalizedIdentity): Promise<void> {
     const client = await this.db.connect();
