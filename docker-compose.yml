@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PGSQL_USER:-auth_svc}
+      POSTGRES_PASSWORD: ${PGSQL_PASSWORD:?PGSQL_PASSWORD must be set}
+      POSTGRES_DB: ${PGSQL_DB:-auth_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGSQL_USER:-auth_svc} -d ${PGSQL_DB:-auth_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # ports: 없음 — 외부 노출 금지
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # ports: 없음 — 외부 노출 금지
+    restart: unless-stopped
+
+  auth-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://${PGSQL_USER:-auth_svc}:${PGSQL_PASSWORD}@postgres:5432/${PGSQL_DB:-auth_db}
+      REDIS_URL: redis://redis:6379
+      PORT: 3000
+    # 호스트에서만 바인딩 — 외부 접근은 cloudflared tunnel이 담당
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

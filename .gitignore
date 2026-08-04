@@ -1,2 +1,8 @@
 graphify-out/
 tmp/
+node_modules/
+dist/
+coverage/
+.env
+*.log
+*.tsbuildinfo
