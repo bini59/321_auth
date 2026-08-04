@@ -17,8 +17,8 @@
 2. Move API source/tests/config/build metadata into `apps/api`; make root scripts delegate to workspace packages. (done)
 3. Add contracts package and Admin shell (`apps/admin`) with route/layout/API client seams only. (done)
 4. Update Docker/Compose/Actions for workspace install/build/deploy. (done)
-5. Run API tests/build, Admin typecheck/build, frozen-lockfile install, and config/static secret checks. (in progress)
-6. Run graphify update, review the complete diff, then merge and push after review gate.
+5. Run API tests/build, Admin typecheck/build, frozen-lockfile install, and config/static secret checks. (done)
+6. Run graphify update, review the complete diff, then merge and push after review gate. (done)
 
 ## File ownership / likely changes
 
@@ -45,3 +45,9 @@
 - Use pnpm's workspace protocol only for local contracts; keep runtime dependencies package-local.
 - Admin API calls are same-origin-relative by default and expose an injectable credential-free transport boundary. No server-side admin proxy/auth implementation is added in this issue.
 - The existing lockfile is npm-based; generate and commit a pnpm lockfile rather than hand-editing it.
+
+## Review gate
+
+- Correctness/security pass: HIGH migration sequencing issue fixed; no CRITICAL/HIGH findings remain.
+- Over-engineering pass: retained the small hash-based Admin shell and explicit API boundary because they are the requested scaffold; deferred real Admin auth and resource operations as agreed.
+- Validation: frozen-lockfile install, API typecheck/build/test, Admin typecheck/build, Docker build, Compose config, graphify update all pass.
