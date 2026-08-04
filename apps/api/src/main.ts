@@ -5,9 +5,11 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { ENV } from './config/env';
+import { installAdminStatic } from './admin-static';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: ['log', 'error', 'warn'] });
+  installAdminStatic(app);
   app.use(helmet());
   app.use(cookieParser());
 
