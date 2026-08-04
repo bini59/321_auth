@@ -11,7 +11,6 @@ export const redisProvider = {
     return new Redis(ENV.redisUrl, {
       maxRetriesPerRequest: 2,
       enableOfflineQueue: false,
-      lazyConnect: true,
     });
   },
 };
