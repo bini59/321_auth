@@ -3,13 +3,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${PGSQL_USER:-auth_svc}
-      POSTGRES_PASSWORD: ${PGSQL_PASSWORD:?PGSQL_PASSWORD must be set}
-      POSTGRES_DB: ${PGSQL_DB:-auth_db}
+      POSTGRES_USER: ${POSTGRES_USER:-auth_svc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-auth_db}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PGSQL_USER:-auth_svc} -d ${PGSQL_DB:-auth_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-auth_svc} -d ${POSTGRES_DB:-auth_db}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -40,12 +40,12 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://${PGSQL_USER:-auth_svc}:${PGSQL_PASSWORD}@postgres:5432/${PGSQL_DB:-auth_db}
+      DATABASE_URL: postgres://${POSTGRES_USER:-auth_svc}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-auth_db}
       REDIS_URL: redis://redis:6379
       PORT: 3000
     # 호스트에서만 바인딩 — 외부 접근은 cloudflared tunnel이 담당
     ports:
-      - "127.0.0.1:${PORT:-3000}:3000"
+      - "127.0.0.1:3002:3000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
       interval: 10s
