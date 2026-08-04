@@ -9,9 +9,17 @@ import { OidcService } from './oidc/oidc.service';
 import { UsersService } from './users/users.service';
 import { MembershipsService } from './memberships/memberships.service';
 import { AuthController } from './auth/auth.controller';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { ADMIN_DIST } from './admin-static';
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: ADMIN_DIST,
+      serveRoot: '/admin',
+      renderPath: '/admin',
+      serveStaticOptions: { fallthrough: true, index: false, redirect: false },
+    }),
     DbModule,
     RedisModule,
     ThrottlerModule.forRoot([
