@@ -95,6 +95,29 @@ export class AuthController {
     return res.redirect(302, url);
   }
 
+  @Get('link/:provider')
+  async link(@Param('provider') providerStr: string, @Req() req: Request, @Res() res: Response) {
+    const provider = providerStr as ProviderName;
+    if (!PROVIDERS[provider]) throw new BadRequestException('unknown provider');
+
+    const sid: string | undefined = req.cookies?.sid;
+    if (!sid) throw new UnauthorizedException();
+    const session = await this.sessions.get(sid);
+    if (!session) throw new UnauthorizedException();
+
+    const client = await this.clients.find(String(req.query.client_id ?? ''));
+    if (!client) throw new BadRequestException('unknown client');
+    const returnTo = this.oidc.validateReturnTo(
+      req.query.return_to ? String(req.query.return_to) : undefined,
+      client,
+    );
+    const url = await this.oidc.buildAuthUrl(provider, client.client_id, returnTo, {
+      mode: 'link',
+      existingUserId: session.userId,
+    });
+    return res.redirect(302, url);
+  }
+
   @Get('callback/:provider')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   async callback(
@@ -255,6 +278,20 @@ export class AuthController {
     if (sess) await this.sessions.revokeAll(sess.userId);
     res.clearCookie('sid', sidCookie());
     return res.redirect(302, `${ENV.authOrigin}/login`);
+  }
+
+  @Post('account/delete')
+  @UseGuards(CsrfGuard)
+  async deleteAccount(@Req() req: Request, @Res() res: Response) {
+    const sid: string | undefined = req.cookies?.sid;
+    if (!sid) throw new UnauthorizedException();
+    const session = await this.sessions.get(sid);
+    if (!session) throw new UnauthorizedException();
+
+    await this.users.requestDeletion(session.userId);
+    await this.sessions.revokeAll(session.userId);
+    res.clearCookie('sid', sidCookie());
+    return res.status(204).send();
   }
 }
 
