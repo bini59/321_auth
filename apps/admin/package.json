@@ -1,0 +1,6 @@
+{
+  "name": "@321-auth/admin", "version": "0.1.0", "private": true, "type": "module",
+  "scripts": { "dev": "vite", "build": "tsc -b && vite build", "typecheck": "tsc -b --pretty false", "preview": "vite preview" },
+  "dependencies": { "@321-auth/contracts": "workspace:*", "@vitejs/plugin-react": "latest", "vite": "latest", "typescript": "^5.7.0", "react": "latest", "react-dom": "latest" },
+  "devDependencies": { "@types/react": "latest", "@types/react-dom": "latest" }
+}
