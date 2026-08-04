@@ -1,5 +1,5 @@
 // 첫 앱 클라이언트 등록 (PRD §7.1, §13 #7)
-// 사용법: DATABASE_URL=... tsx scripts/seed-client.ts <clientId> <name> <secret> <origins(csv)> <defaultRedirect> [autoProvision]
+// 사용법: DATABASE_URL=... pnpm --filter @321-auth/api seed -- <clientId> <name> <secret> <origins(csv)> <defaultRedirect> [autoProvision]
 import { createHash } from 'node:crypto';
 import { Client } from 'pg';
 
@@ -8,7 +8,7 @@ async function main() {
     process.argv.slice(2);
   if (!clientId || !name || !secret || !originsCsv || !defaultRedirect) {
     console.error(
-      'usage: DATABASE_URL=... tsx scripts/seed-client.ts <clientId> <name> <secret> <origins(csv)> <defaultRedirect> [autoProvision]',
+      'usage: DATABASE_URL=... pnpm --filter @321-auth/api seed -- <clientId> <name> <secret> <origins(csv)> <defaultRedirect> [autoProvision]',
     );
     process.exit(1);
   }
@@ -31,7 +31,7 @@ async function main() {
        secret_hash = EXCLUDED.secret_hash`,
     [clientId, name, origins, defaultRedirect, autoProvision === 'true', secretHash],
   );
-  console.log(`seeded client '${clientId}' (${origins.length} origins, hash ${secretHash.slice(0, 8)}…)`);
+  console.log(`seeded client '${clientId}' (${origins.length} origins)`);
   await client.end();
 }
 
