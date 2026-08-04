@@ -1,0 +1,103 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# 같은 시점 다중 배포 차단
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # 1) 이미지 빌드/푸시 (GitHub-Hosted ARM)
+  build-and-push:
+    name: Build & Push image to GHCR
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: sha-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=long
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/arm64
+
+  # 2) 실제 배포 (Self-Hosted Runner)
+  deploy:
+    name: Deploy (self-hosted)
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, auth-prod]
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    defaults:
+      run:
+        working-directory: ${{ vars.DEPLOY_PATH || '/home/ubuntu/03_personal/321_auth' }}
+    steps:
+      - name: Sync repository (fetch + reset to main)
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Log in to GHCR (for image pull)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Deploy (pull image → migrate → restart)
+        env:
+          APP_IMAGE: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+        run: |
+          # compose 파일에서 사용할 이미지 주입을 위해 APP_IMAGE 환경변수 사용
+          # 우선 기존 서비스 백그라운드 구동 보장
+          docker compose up -d postgres redis
+          
+          # 새 이미지 받기
+          docker compose pull auth-app
+          
+          # 중단 없이 재기동 (바뀐 이미지 반영)
+          docker compose up -d auth-app
+
+          # 마이그레이션 실행 (idempotent, 이미 작동 중인 앱 컨테이너 이용)
+          docker compose exec auth-app npm run migrate
+
+      - name: Cleanup old images
+        run: docker image prune -f -a --filter "until=24h"

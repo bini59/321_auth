@@ -29,6 +29,7 @@ services:
     restart: unless-stopped
 
   auth-app:
+    image: ${APP_IMAGE:-321_auth-auth-app:latest}
     build:
       context: .
       dockerfile: Dockerfile
