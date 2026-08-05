@@ -29,6 +29,8 @@ export const ENV = {
   authOrigin: optional('AUTH_ORIGIN') || 'http://localhost:3000',
   cookieDomain: optional('COOKIE_DOMAIN'),
   sessionTtlSeconds: Number(process.env.SESSION_TTL_SECONDS ?? 1209600),
+  adminPasswordHash: optional('ADMIN_PASSWORD_HASH'),
+  adminSessionTtlSeconds: Number(process.env.ADMIN_SESSION_TTL_SECONDS ?? 28800),
   csrfSalt: optional('CSRF_TOKEN_SALT'),
   allowedOrigins: (process.env.CORS_ORIGINS ?? '')
     .split(',')
