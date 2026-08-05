@@ -230,8 +230,12 @@ export class AuthController {
   @UseGuards(AppSecretGuard)
   async createMembership(
     @Body() dto: { clientId: string; userId: string },
+    @Req() req: Request,
   ) {
     if (!dto.clientId || !dto.userId) throw new BadRequestException('clientId/userId required');
+    if (dto.clientId !== req.authClientId) {
+      throw new BadRequestException('clientId mismatch');
+    }
     await this.memberships.ensure(dto.userId, dto.clientId);
     return { ok: true };
   }
