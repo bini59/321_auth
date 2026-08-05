@@ -31,6 +31,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
+      - name: Verify Admin bundle contains no server credentials
+        run: |
+          if rg -n -i 'ADMIN_PASSWORD_HASH|ADMIN_API_KEY|x-app-secret|scrypt-v1' apps/admin/dist; then
+            echo 'Admin bundle contains a server credential marker'
+            exit 1
+          fi
       - run: pnpm typecheck
 
   build-and-push:
