@@ -6,7 +6,7 @@ import express from 'express';
 export const ADMIN_DIST = join(process.cwd(), 'apps/admin/dist');
 
 export function shouldFallbackToAdminShell(pathname: string): boolean {
-  return pathname !== '/' && posix.extname(pathname) === '';
+  return pathname !== '/' && !pathname.startsWith('/auth/') && pathname !== '/auth' && posix.extname(pathname) === '';
 }
 
 export function shouldServeAdminShell(pathname: string): boolean {
