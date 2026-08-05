@@ -4,7 +4,7 @@ import { timingSafeEqual } from 'node:crypto';
 // double-submit: 쿠키 csrf 값과 x-csrf-token 헤더 일치 확인
 @Injectable()
 export class CsrfGuard implements CanActivate {
-  constructor(private readonly cookieName = 'csrf') {}
+  protected readonly cookieName: string = 'csrf';
 
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest();

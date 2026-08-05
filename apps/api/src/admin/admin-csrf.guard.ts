@@ -3,8 +3,5 @@ import { CsrfGuard } from '../security/csrf.guard';
 
 @Injectable()
 export class AdminCsrfGuard extends CsrfGuard {
-  constructor() {
-    super('admin_csrf');
-  }
+  protected override readonly cookieName = 'admin_csrf';
 }
-
