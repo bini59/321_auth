@@ -9,9 +9,9 @@ import { installAdminStatic } from './admin-static';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: ['log', 'error', 'warn'] });
-  installAdminStatic(app);
   app.use(helmet());
   app.use(cookieParser());
+  installAdminStatic(app);
 
   if (ENV.allowedOrigins.length > 0) {
     app.enableCors({

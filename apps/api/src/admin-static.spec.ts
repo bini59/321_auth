@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldFallbackToAdminShell, shouldServeAdminShell } from './admin-static';
+import { shouldFallbackToAdminShell, shouldRequireAdminLogin, shouldServeAdminShell } from './admin-static';
 
 describe('admin SPA fallback policy', () => {
   it('falls back for extensionless SPA routes', () => {
@@ -18,5 +18,12 @@ describe('admin SPA fallback policy', () => {
   it('serves the shell at both admin entry paths', () => {
     expect(shouldServeAdminShell('/')).toBe(true);
     expect(shouldServeAdminShell('/overview')).toBe(true);
+  });
+
+  it('requires a session for Admin routes except the login page', () => {
+    expect(shouldRequireAdminLogin('/')).toBe(true);
+    expect(shouldRequireAdminLogin('/users')).toBe(true);
+    expect(shouldRequireAdminLogin('/login')).toBe(false);
+    expect(shouldRequireAdminLogin('/assets/index.js')).toBe(false);
   });
 });
