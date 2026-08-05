@@ -11,6 +11,9 @@ import { MembershipsService } from './memberships/memberships.service';
 import { AuthController } from './auth/auth.controller';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ADMIN_DIST } from './admin-static';
+import { AdminAuthController } from './admin/admin-auth.controller';
+import { AdminSessionService } from './admin/admin-session.service';
+import { AdminCsrfGuard } from './admin/admin-csrf.guard';
 
 @Module({
   imports: [
@@ -26,13 +29,15 @@ import { ADMIN_DIST } from './admin-static';
       { name: 'default', ttl: 60000, limit: 120 },
     ]),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, AdminAuthController],
   providers: [
     SessionService,
     ClientsService,
     OidcService,
     UsersService,
     MembershipsService,
+    AdminSessionService,
+    AdminCsrfGuard,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
