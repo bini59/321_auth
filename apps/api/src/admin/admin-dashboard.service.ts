@@ -10,6 +10,7 @@ export interface AdminOverview {
     activeSessions: number | null;
     clients: number | null;
     memberships: number | null;
+    suspendedMemberships: number | null;
     deletionRequests: number | null;
   };
   services: {
@@ -32,10 +33,11 @@ export class AdminDashboardService {
   ) {}
 
   async overview(): Promise<AdminOverview> {
-    const [users, clients, memberships, deletionRequests, postgres, redis] = await Promise.all([
+    const [users, clients, memberships, suspendedMemberships, deletionRequests, postgres, redis] = await Promise.all([
       this.count('SELECT count(*)::int AS count FROM users'),
       this.count('SELECT count(*)::int AS count FROM clients'),
       this.count('SELECT count(*)::int AS count FROM memberships'),
+      this.count("SELECT count(*)::int AS count FROM memberships WHERE status = 'suspended'"),
       this.count('SELECT count(*)::int AS count FROM deletion_queue'),
       this.postgresStatus(),
       this.redisStatus(),
@@ -47,6 +49,7 @@ export class AdminDashboardService {
         activeSessions: redis.activeSessions,
         clients,
         memberships,
+        suspendedMemberships,
         deletionRequests,
       },
       services: {

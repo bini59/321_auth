@@ -4,10 +4,12 @@ import { formatAdminCount, serviceStatusLabel } from '../view-model';
 
 export function OverviewSection({ data }: { data: AdminOverview | null }) {
   const metrics = [
-    { label: '사용자', value: formatAdminCount(data?.userCount), hint: '전체 등록 인물' },
-    { label: '서비스', value: formatAdminCount(data?.clientCount), hint: 'auth에 등록된 앱 클라이언트' },
-    { label: '활성 멤버십', value: formatAdminCount(data?.activeMembershipCount), hint: '전체 서비스 합계' },
-    { label: '정지 멤버십', value: formatAdminCount(data?.suspendedMembershipCount), hint: '검토 필요', danger: true },
+    { label: '사용자', value: formatAdminCount(data?.counts.users), hint: '전체 등록 인물' },
+    { label: '서비스', value: formatAdminCount(data?.counts.clients), hint: 'auth에 등록된 앱 클라이언트' },
+    { label: '활성 멤버십', value: formatAdminCount(data?.counts.memberships), hint: '전체 서비스 합계' },
+    { label: '정지 멤버십', value: formatAdminCount(data?.counts.suspendedMemberships), hint: '검토 필요', danger: true },
+    { label: '활성 세션', value: formatAdminCount(data?.counts.activeSessions), hint: '현재 로그인 세션' },
+    { label: '탈퇴 요청', value: formatAdminCount(data?.counts.deletionRequests), hint: '처리 대기 중인 요청' },
   ];
   const deps = [
     { name: 'postgres', status: data?.services.postgres },
@@ -28,7 +30,7 @@ export function OverviewSection({ data }: { data: AdminOverview | null }) {
           <div className="metric" key={metric.label}>
             <div className="metric-top">
               <span className="metric-label">{metric.label}</span>
-              {metric.danger && data?.suspendedMembershipCount ? <span className="badge badge--danger">검토</span> : null}
+              {metric.danger && data?.counts.suspendedMemberships ? <span className="badge badge--danger">검토</span> : null}
             </div>
             <div className="metric-value">{metric.value}</div>
             <div className="metric-hint">{metric.hint}</div>
