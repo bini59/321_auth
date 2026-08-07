@@ -14,6 +14,7 @@ export interface ClientRow extends ClientInfo {
   auto_provision: boolean;
   onboarding_path: string | null;
   secret_hash: string;
+  is_active: boolean;
 }
 
 export function hashAppSecret(secret: string): string {
@@ -30,6 +31,42 @@ export class ClientsService {
       [clientId],
     );
     return r.rows[0] ?? null;
+  }
+
+  async list(): Promise<Array<Omit<ClientRow, 'secret_hash'>>> {
+    const r = await this.db.query(
+      `SELECT client_id, name, logo_url, theme_color, allowed_origins, default_redirect,
+              auto_provision, onboarding_path, is_active, created_at
+       FROM clients ORDER BY client_id`,
+    );
+    return r.rows;
+  }
+
+  async update(clientId: string, input: { name: string; allowed_origins: string[]; default_redirect: string; auto_provision: boolean; onboarding_path: string | null; logo_url?: string | null; theme_color?: string | null }) {
+    const r = await this.db.query(
+      `UPDATE clients SET name=$2, allowed_origins=$3::text[], default_redirect=$4,
+         auto_provision=$5, onboarding_path=$6, logo_url=$7, theme_color=$8
+       WHERE client_id=$1 RETURNING client_id, name, logo_url, theme_color, allowed_origins,
+         default_redirect, auto_provision, onboarding_path, is_active, created_at`,
+      [clientId, input.name, input.allowed_origins, input.default_redirect, input.auto_provision, input.onboarding_path, input.logo_url ?? null, input.theme_color ?? null],
+    );
+    return r.rows[0] ?? null;
+  }
+
+  async setActive(clientId: string, isActive: boolean) {
+    const r = await this.db.query(
+      `UPDATE clients SET is_active=$2 WHERE client_id=$1 RETURNING client_id, is_active`,
+      [clientId, isActive],
+    );
+    return r.rows[0] ?? null;
+  }
+
+  async rotateSecret(clientId: string, secretHash: string) {
+    const r = await this.db.query(
+      `UPDATE clients SET secret_hash=$2 WHERE client_id=$1 RETURNING client_id`,
+      [clientId, secretHash],
+    );
+    return r.rowCount ? r.rows[0] : null;
   }
 
   async verifySecret(clientId: string, secret: string): Promise<ClientRow | null> {
@@ -53,7 +90,7 @@ export class ClientsService {
     theme_color?: string | null;
     onboarding_path?: string | null;
   }) {
-    await this.db.query(
+    return this.db.query(
       `INSERT INTO clients
          (client_id, name, logo_url, theme_color, allowed_origins, default_redirect,
           auto_provision, onboarding_path, secret_hash)

@@ -6,6 +6,7 @@ Admin은 기존 NestJS auth 서버가 `https://auth.bini59.dev/admin` 및 `/admi
 
 - Admin 브라우저 코드는 같은 origin의 상대 경로(`/healthz`, `/me`)로 auth API를 호출한다.
 - 관리자 API는 `/admin/auth/csrf`, `/admin/auth/login`, `/admin/auth/session`, `/admin/auth/logout`으로 분리되어 있다.
+- 운영 대시보드 API는 `/admin/api/overview`와 `/admin/api/deletion-queue`로 분리되며, 각 요청도 `admin_sid` 세션을 서버에서 재검증한다. 정적 SPA fallback은 이 API 경로를 가로채지 않는다.
 - 로그인 성공 시 서버가 Redis의 `admin_sess:<opaque-id>`에 세션을 저장하고, `admin_sid` HttpOnly·Secure·SameSite=Lax 쿠키를 `/admin` 경로에만 발급한다.
 - 로그인과 로그아웃은 `/admin` 경로의 `admin_csrf` double-submit 쿠키와 `x-csrf-token` 헤더가 일치해야 한다. 일반 OAuth의 `csrf` 쿠키와 분리한다.
 - 로그인은 분당 5회로 제한되며, 비밀번호 오류·누락·미설정은 동일한 비민감 오류로 응답한다.
