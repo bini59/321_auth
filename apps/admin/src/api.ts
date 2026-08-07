@@ -1,5 +1,16 @@
 import type { AuthenticatedUser, HealthResponse } from '@321-auth/contracts';
-async function request<T>(path: string, init?: RequestInit): Promise<T> { const response = await fetch(path, { credentials: 'include', ...init }); if (!response.ok) throw new Error(`Auth API request failed (${response.status})`); return response.json() as Promise<T>; }
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, { credentials: 'include', ...init });
+  if (!response.ok) throw new Error(`Auth API request failed (${response.status})`);
+
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.toLowerCase().includes('application/json')) {
+    throw new Error(`Auth API returned non-JSON response (${contentType || 'unknown content type'})`);
+  }
+
+  return response.json() as Promise<T>;
+}
 export interface AdminSessionResponse { authenticated: true }
 export interface AdminCsrfResponse { csrfToken: string }
 export interface AdminLoginResponse { ok: true; returnTo: string }
