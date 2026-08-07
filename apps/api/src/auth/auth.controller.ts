@@ -57,7 +57,7 @@ export class AuthController {
   async login(@Req() req: Request, @Res() res: Response) {
     const q = req.query;
     const client = await this.clients.find(String(q.client_id ?? ''));
-    if (!client) throw new BadRequestException('unknown client');
+    if (!client || !client.is_active) throw new BadRequestException('unknown client');
 
     const returnTo = this.oidc.validateReturnTo(
       q.return_to ? String(q.return_to) : undefined,
@@ -85,7 +85,7 @@ export class AuthController {
     if (!PROVIDERS[provider]) throw new BadRequestException('unknown provider');
 
     const client = await this.clients.find(String(req.query.client_id ?? ''));
-    if (!client) throw new BadRequestException('unknown client');
+    if (!client || !client.is_active) throw new BadRequestException('unknown client');
 
     const returnTo = this.oidc.validateReturnTo(
       req.query.return_to ? String(req.query.return_to) : undefined,
@@ -106,7 +106,7 @@ export class AuthController {
     if (!session) throw new UnauthorizedException();
 
     const client = await this.clients.find(String(req.query.client_id ?? ''));
-    if (!client) throw new BadRequestException('unknown client');
+    if (!client || !client.is_active) throw new BadRequestException('unknown client');
     const returnTo = this.oidc.validateReturnTo(
       req.query.return_to ? String(req.query.return_to) : undefined,
       client,
@@ -134,7 +134,7 @@ export class AuthController {
     if (ctx.provider !== provider) throw new BadRequestException('provider mismatch');
 
     const client = await this.clients.find(ctx.clientId);
-    if (!client) throw new BadRequestException('unknown client');
+    if (!client || !client.is_active) throw new BadRequestException('unknown client');
 
     if (error) {
       const u = new URL(ctx.returnTo);
