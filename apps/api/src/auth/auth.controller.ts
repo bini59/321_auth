@@ -191,7 +191,6 @@ export class AuthController {
       membership = await this.memberships.find(user.id, clientId);
     }
     if (membership?.status === 'suspended') throw new ForbiddenException('membership suspended');
-    if (membership?.status === 'suspended') throw new ForbiddenException('membership suspended');
     this.memberships.touch(user.id, clientId);
     await this.sessions.touch(sid, user.id);
 
@@ -215,7 +214,11 @@ export class AuthController {
 
     let membership = null;
     const clientId = req.query.client_id ? String(req.query.client_id) : undefined;
-    if (clientId) membership = await this.memberships.find(user.id, clientId);
+    if (clientId) {
+      const client = await this.clients.find(clientId);
+      if (!client || !client.is_active) throw new BadRequestException('unknown client');
+      membership = await this.memberships.find(user.id, clientId);
+    }
 
     res.cookie('csrf', randomBytes(16).toString('base64url'), {
       ...cookieOptions({ httpOnly: false }),
@@ -233,9 +236,12 @@ export class AuthController {
   @UseGuards(AppSecretGuard)
   async createMembership(
     @Body() dto: { clientId: string; userId: string },
+    @Req() req: Request,
   ) {
-    if (!dto.clientId || !dto.userId) throw new BadRequestException('clientId/userId required');
-    await this.memberships.ensure(dto.userId, dto.clientId);
+    const serviceId = (dto as { serviceId?: string }).serviceId ?? dto.clientId;
+    if (!serviceId || !dto.userId) throw new BadRequestException('serviceId/userId required');
+    if (req.authClientId !== serviceId) throw new ForbiddenException('service mismatch');
+    await this.memberships.ensure(dto.userId, serviceId);
     return { ok: true };
   }
 

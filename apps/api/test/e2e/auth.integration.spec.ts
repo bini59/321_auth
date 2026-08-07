@@ -26,13 +26,14 @@ const { MembershipsService } = require('../../dist/memberships/memberships.servi
 const USER_ID = '00000000-0000-0000-0000-000000000033';
 const APP_SECRET = 'e2e-alpha-secret';
 const CLIENTS = {
-  alpha: { client_id: 'alpha', name: 'Alpha', logo_url: null, theme_color: null, allowed_origins: [] as string[], default_redirect: '', auto_provision: true, onboarding_path: null, secret_hash: '' },
-  beta: { client_id: 'beta', name: 'Beta', logo_url: null, theme_color: null, allowed_origins: [] as string[], default_redirect: '', auto_provision: false, onboarding_path: '/onboarding', secret_hash: '' },
+  alpha: { client_id: 'alpha', name: 'Alpha', logo_url: null, theme_color: null, allowed_origins: [] as string[], default_redirect: '', auto_provision: true, onboarding_path: null, secret_hash: '', is_active: true },
+  beta: { client_id: 'beta', name: 'Beta', logo_url: null, theme_color: null, allowed_origins: [] as string[], default_redirect: '', auto_provision: false, onboarding_path: '/onboarding', secret_hash: '', is_active: true },
+  inactive: { client_id: 'inactive', name: 'Inactive', logo_url: null, theme_color: null, allowed_origins: [] as string[], default_redirect: '', auto_provision: true, onboarding_path: null, secret_hash: '', is_active: false },
 };
 
 class FakeClients {
   async find(id: string) { return CLIENTS[id as keyof typeof CLIENTS] ?? null; }
-  async verifySecret(id: string, secret: string) { return id === 'alpha' && secret === APP_SECRET ? CLIENTS.alpha : null; }
+  async verifySecret(id: string, secret: string) { return (id === 'alpha' || id === 'beta' || id === 'inactive') && secret === APP_SECRET ? CLIENTS[id as 'alpha' | 'beta' | 'inactive'] : null; }
 }
 
 class FakeSessions {
@@ -149,6 +150,14 @@ test('Kakao browser round trip and cross-client SSO preserve one user session', 
   expect(await me.json()).toMatchObject({ userId: USER_ID, membership: null });
 });
 
+test('auto_provision=false preserves an existing active membership', async ({ page }) => {
+  await login(page, 'google');
+  const memberships = app.get(MembershipsService) as unknown as FakeMemberships;
+  await memberships.ensure(USER_ID, 'beta');
+  const verify = await page.request.get(`${origin}/verify?client_id=beta`, { headers: { 'x-app-secret': APP_SECRET } });
+  expect(await verify.json()).toMatchObject({ userId: USER_ID, membership: { status: 'active' } });
+});
+
 test('state is single-use and rejects provider mismatch', async ({ page }) => {
   const response = await page.request.get(`${origin}/login/google?client_id=alpha&return_to=${encodeURIComponent(CLIENTS.alpha.default_redirect)}`, { maxRedirects: 0 });
   const location = response.headers().location;
@@ -161,6 +170,24 @@ test('state is single-use and rejects provider mismatch', async ({ page }) => {
   const expiredState = new URL(expiredResponse.headers().location!, origin).searchParams.get('state')!;
   (app.get(OidcService) as unknown as FakeOidc).expire(expiredState);
   expect((await page.request.get(`${origin}/callback/kakao?state=${expiredState}&code=x`)).status()).toBe(400);
+});
+
+test('unknown and inactive services are rejected before any user or membership work', async ({ page }) => {
+  expect((await page.request.get(`${origin}/login?client_id=missing`, { maxRedirects: 0 })).status()).toBe(400);
+  expect((await page.request.get(`${origin}/login/google?client_id=inactive`, { maxRedirects: 0 })).status()).toBe(400);
+  expect((await page.request.get(`${origin}/verify?client_id=missing`, { headers: { 'x-app-secret': APP_SECRET } })).status()).toBe(401);
+  expect((await page.request.get(`${origin}/verify?client_id=inactive`, { headers: { 'x-app-secret': APP_SECRET } })).status()).toBe(401);
+  expect((await page.request.post(`${origin}/memberships?client_id=inactive`, { headers: { 'x-app-secret': APP_SECRET, 'content-type': 'application/json' }, data: { serviceId: 'inactive', userId: USER_ID } })).status()).toBe(401);
+  await login(page, 'google');
+  expect((await page.request.get(`${origin}/me?client_id=inactive`)).status()).toBe(400);
+});
+
+test('a service cannot create a membership for another service', async ({ page }) => {
+  const response = await page.request.post(`${origin}/memberships?client_id=alpha`, {
+    headers: { 'x-app-secret': APP_SECRET, 'content-type': 'application/json' },
+    data: { serviceId: 'beta', userId: USER_ID },
+  });
+  expect(response.status()).toBe(403);
 });
 
 test('logout, all-session logout, suspended membership, and deletion are enforced', async ({ page }) => {
@@ -176,7 +203,7 @@ test('logout, all-session logout, suspended membership, and deletion are enforce
   await page.request.get(`${origin}/me?client_id=alpha`);
   (app.get(MembershipsService) as unknown as FakeMemberships).suspend('alpha');
   const suspended = await page.request.get(`${origin}/verify?client_id=alpha`, { headers: { 'x-app-secret': APP_SECRET } });
-  expect(await suspended.json()).toMatchObject({ membership: { status: 'suspended' } });
+  expect(suspended.status()).toBe(403);
   const deleteCsrf = (await page.context().cookies(origin)).find((cookie) => cookie.name === 'csrf')!.value;
   expect((await page.request.post(`${origin}/account/delete`, { headers: { 'x-csrf-token': deleteCsrf } })).status()).toBe(204);
   expect((await page.request.get(`${origin}/me`)).status()).toBe(401);

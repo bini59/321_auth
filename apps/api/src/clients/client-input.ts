@@ -4,13 +4,20 @@ const CLIENT_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
 
 export function validateClientInput(input: {
   client_id?: unknown;
+  service_id?: unknown;
+  serviceId?: unknown;
   name?: unknown;
   allowed_origins?: unknown;
   default_redirect?: unknown;
   auto_provision?: unknown;
   onboarding_path?: unknown;
 }) {
-  const clientId = typeof input.client_id === 'string' ? input.client_id.trim() : '';
+  const rawClientId = input.service_id ?? input.serviceId ?? input.client_id;
+  const clientId = typeof rawClientId === 'string' ? rawClientId.trim() : '';
+  const identifiers = [input.client_id, input.service_id, input.serviceId]
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim());
+  if (new Set(identifiers).size > 1) throw new BadRequestException('conflicting service identifiers');
   const name = typeof input.name === 'string' ? input.name.trim() : '';
   const origins = Array.isArray(input.allowed_origins)
     ? input.allowed_origins.map((value) => typeof value === 'string' ? value.trim() : '')

@@ -5,20 +5,20 @@ import { validateClientInput } from '../clients/client-input';
 import { AdminCsrfGuard } from './admin-csrf.guard';
 import { AdminSessionGuard } from './admin-session.guard';
 
-@Controller('admin/clients')
+@Controller(['admin/clients', 'admin/services'])
 @UseGuards(AdminSessionGuard)
 export class AdminClientsController {
   constructor(private readonly clients: ClientsService) {}
 
   @Get()
-  list() { return this.clients.list(); }
+  list() { return this.clients.list().then((clients) => clients.map(withServiceView)); }
 
   @Get(':clientId')
   async detail(@Param('clientId') clientId: string) {
     const client = await this.clients.find(clientId);
     if (!client) throw new NotFoundException('client not found');
     const { secret_hash: _secretHash, ...safeClient } = client;
-    return safeClient;
+    return withServiceView(safeClient);
   }
 
   @Post()
@@ -36,7 +36,7 @@ export class AdminClientsController {
     const client = await this.clients.find(input.clientId);
     if (!client) throw new BadRequestException('client creation failed');
     const { secret_hash: _secretHash, ...safeClient } = client;
-    return { client: safeClient, secret };
+    return { client: withServiceView(safeClient), service: withServiceView(safeClient), secret };
   }
 
   @Patch(':clientId')
@@ -45,7 +45,7 @@ export class AdminClientsController {
     const input = validateClientInput({ ...body, client_id: clientId });
     const client = await this.clients.update(clientId, { name: input.name, allowed_origins: input.origins, default_redirect: input.redirect, auto_provision: input.autoProvision, onboarding_path: input.onboardingPath });
     if (!client) throw new NotFoundException('client not found');
-    return client;
+    return withServiceView(client);
   }
 
   @Delete(':clientId')
@@ -53,7 +53,7 @@ export class AdminClientsController {
   async deactivate(@Param('clientId') clientId: string) {
     const client = await this.clients.setActive(clientId, false);
     if (!client) throw new NotFoundException('client not found');
-    return client;
+    return withServiceView(client);
   }
 
   @Post(':clientId/activate')
@@ -61,7 +61,7 @@ export class AdminClientsController {
   async activate(@Param('clientId') clientId: string) {
     const client = await this.clients.setActive(clientId, true);
     if (!client) throw new NotFoundException('client not found');
-    return client;
+    return withServiceView(client);
   }
 
   @Post(':clientId/rotate-secret')
@@ -70,6 +70,16 @@ export class AdminClientsController {
     const secret = randomBytes(32).toString('base64url');
     const client = await this.clients.rotateSecret(clientId, hashAppSecret(secret));
     if (!client) throw new NotFoundException('client not found');
-    return { ...client, secret };
+    return { ...withServiceView(client), secret };
   }
+}
+
+function withServiceView<T extends { client_id: string; name: string }>(client: T) {
+  return {
+    ...client,
+    service_id: client.client_id,
+    serviceId: client.client_id,
+    service_name: client.name,
+    serviceName: client.name,
+  };
 }
