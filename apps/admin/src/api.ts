@@ -25,7 +25,17 @@ export interface AdminMembership { clientId: string; clientName: string; role: s
 export interface AdminServiceMembership { userId: string; email: string | null; name: string | null; role: string; status: string; joinedAt: string; lastSeenAt: string | null }
 export interface AdminUserDetail extends AdminUser { identities: Array<{ provider: string; providerUserId: string; emailAtLink: string | null; linkedAt: string }>; memberships: AdminMembership[] }
 export interface AdminAudit { id: number; action: string; userId: string | null; clientId: string | null; details: Record<string, unknown>; createdAt: string }
-export interface AdminOverview { userCount: number | null; clientCount: number | null; activeMembershipCount: number | null; suspendedMembershipCount: number | null; services: { postgres: 'up' | 'down'; redis: 'up' | 'down' } }
+export interface AdminOverview {
+  counts: {
+    users: number | null;
+    activeSessions: number | null;
+    clients: number | null;
+    memberships: number | null;
+    suspendedMemberships: number | null;
+    deletionRequests: number | null;
+  };
+  services: { api: 'up'; postgres: 'up' | 'down'; redis: 'up' | 'down' };
+}
 export interface DeletionQueueItem { userId: string; requestedAt: string }
 export const authApi = {
   health: () => request<HealthResponse>('/healthz'),

@@ -7,6 +7,7 @@ function dbForCounts() {
       if (sql.includes('SELECT 1')) return { rows: [{ '?column?': 1 }] };
       if (sql.includes('FROM users')) return { rows: [{ count: 12 }] };
       if (sql.includes('FROM clients')) return { rows: [{ count: 3 }] };
+      if (sql.includes("FROM memberships") && sql.includes("status = 'suspended'")) return { rows: [{ count: 4 }] };
       if (sql.includes('FROM memberships')) return { rows: [{ count: 21 }] };
       if (sql.includes('FROM deletion_queue')) return { rows: [{ count: 2 }] };
       throw new Error('unexpected query');
@@ -20,7 +21,7 @@ describe('AdminDashboardService', () => {
     const redis = { ping: vi.fn(async () => 'PONG'), scan: vi.fn(async () => ['0', ['sess:a', 'sess:b']]) };
     const result = await new AdminDashboardService(db as any, redis as any).overview();
     expect(result).toEqual({
-      counts: { users: 12, activeSessions: 2, clients: 3, memberships: 21, deletionRequests: 2 },
+      counts: { users: 12, activeSessions: 2, clients: 3, memberships: 21, suspendedMemberships: 4, deletionRequests: 2 },
       services: { api: 'up', postgres: 'up', redis: 'up' },
     });
     expect(JSON.stringify(result)).not.toMatch(/secret|password|hash|admin_sid/i);
@@ -30,7 +31,7 @@ describe('AdminDashboardService', () => {
     const db = { query: vi.fn(async () => { throw new Error('database down'); }) };
     const redis = { ping: vi.fn(async () => { throw new Error('redis down'); }) };
     const result = await new AdminDashboardService(db as any, redis as any).overview();
-    expect(result.counts).toEqual({ users: null, activeSessions: null, clients: null, memberships: null, deletionRequests: null });
+    expect(result.counts).toEqual({ users: null, activeSessions: null, clients: null, memberships: null, suspendedMemberships: null, deletionRequests: null });
     expect(result.services).toEqual({ api: 'up', postgres: 'down', redis: 'down' });
   });
 
