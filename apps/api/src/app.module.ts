@@ -16,6 +16,9 @@ import { AdminSessionService } from './admin/admin-session.service';
 import { AdminCsrfGuard } from './admin/admin-csrf.guard';
 import { AdminSessionGuard } from './admin/admin-session.guard';
 import { AdminClientsController } from './admin/admin-clients.controller';
+import { AdminManagementService } from './admin/admin-management.service';
+import { AdminAuditService } from './admin/admin-audit.service';
+import { AdminManagementController } from './admin/admin-management.controller';
 
 @Module({
   imports: [
@@ -31,7 +34,7 @@ import { AdminClientsController } from './admin/admin-clients.controller';
       { name: 'default', ttl: 60000, limit: 120 },
     ]),
   ],
-  controllers: [AuthController, AdminAuthController, AdminClientsController],
+  controllers: [AuthController, AdminAuthController, AdminClientsController, AdminManagementController],
   providers: [
     SessionService,
     ClientsService,
@@ -41,6 +44,8 @@ import { AdminClientsController } from './admin/admin-clients.controller';
     AdminSessionService,
     AdminCsrfGuard,
     AdminSessionGuard,
+    AdminManagementService,
+    AdminAuditService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
