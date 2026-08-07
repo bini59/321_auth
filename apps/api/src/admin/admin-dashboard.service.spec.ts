@@ -8,7 +8,7 @@ function dbForCounts() {
       if (sql.includes('FROM users')) return { rows: [{ count: 12 }] };
       if (sql.includes('FROM clients')) return { rows: [{ count: 3 }] };
       if (sql.includes("FROM memberships") && sql.includes("status = 'suspended'")) return { rows: [{ count: 4 }] };
-      if (sql.includes('FROM memberships')) return { rows: [{ count: 21 }] };
+      if (sql.includes("FROM memberships") && sql.includes("status = 'active'")) return { rows: [{ count: 21 }] };
       if (sql.includes('FROM deletion_queue')) return { rows: [{ count: 2 }] };
       throw new Error('unexpected query');
     }),
@@ -24,6 +24,7 @@ describe('AdminDashboardService', () => {
       counts: { users: 12, activeSessions: 2, clients: 3, memberships: 21, suspendedMemberships: 4, deletionRequests: 2 },
       services: { api: 'up', postgres: 'up', redis: 'up' },
     });
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining("status = 'active'"));
     expect(JSON.stringify(result)).not.toMatch(/secret|password|hash|admin_sid/i);
   });
 
