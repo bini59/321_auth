@@ -202,7 +202,7 @@ export class AuthController {
   }
 
   @Get('me')
-  async me(@Req() req: Request, @Res() res: Response) {
+  async me(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const sid: string | undefined = req.cookies?.sid;
     if (!sid) throw new UnauthorizedException();
     const sess = await this.sessions.get(sid);
