@@ -13,7 +13,7 @@ export class AppSecretGuard implements CanActivate {
     if (!secret || !clientId) throw new UnauthorizedException();
 
     const client = await this.clients.verifySecret(clientId, secret);
-    if (!client) throw new UnauthorizedException();
+    if (!client || !client.is_active) throw new UnauthorizedException();
 
     req.authClient = client;
     req.authClientId = clientId;
