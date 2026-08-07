@@ -11,7 +11,8 @@
     "start:prod": "node dist/main.js",
     "migrate": "node dist/db/migrate.js",
     "seed": "node dist/db/seed-client.js",
-    "test": "vitest run",
+    "test": "vitest run --exclude test/e2e/**",
+    "test:e2e": "playwright test --config ../../playwright.config.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -39,6 +40,7 @@
     "@types/pg": "^8.11.10",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "@playwright/test": "^1.55.0"
   }
 }
