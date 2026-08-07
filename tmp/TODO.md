@@ -51,6 +51,19 @@ preserve_unrelated_changes:
 
 ## Status
 
+- Plan complete: this file records the accepted scope and heavy/worktree execution metadata.
+- Before implementation: confirm the track/exec metadata with the user through `dev-flow`.
+- After implementation: run `review-gate`; resolve CRITICAL/HIGH findings and report any deferred cleanup.
+- After merge to `main`: use the project `release` skill to perform production release verification, including CI deployment and `/admin`/`/healthz` smoke checks.
+
+
+# Issue #33 — 인증 통합 E2E 검증 자동화
+
+## Execution notes
+
+- `track: light`, `exec: fork`; actual Nest HTTP routing and Playwright browser flow use a local mock Provider.
+- Google/Kakao round trips, state single-use/provider mismatch, session `/verify`/`/me`, cross-client SSO, onboarding, suspended membership, CSRF logout, all-session logout, and account deletion are covered.
+- `docs/e2e-smoke.md` records secret-free CI execution and production smoke evidence requirements.
 - [x] API dashboard boundary
 - [x] Admin UI
 - [x] Tests and validation

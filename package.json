@@ -9,6 +9,7 @@
     "build:admin": "pnpm --filter @321-auth/admin build",
     "migrate": "pnpm --filter @321-auth/api migrate",
     "seed": "pnpm --filter @321-auth/api seed",
+    "e2e": "pnpm build:api && pnpm --filter @321-auth/api exec playwright test --config ../../playwright.config.ts",
     "dev:api": "pnpm --filter @321-auth/api start:dev",
     "dev:admin": "pnpm --filter @321-auth/admin dev",
     "test": "pnpm --filter @321-auth/api test",
