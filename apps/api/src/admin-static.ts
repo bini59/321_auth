@@ -7,7 +7,11 @@ import { AdminSessionService } from './admin/admin-session.service';
 export const ADMIN_DIST = join(process.cwd(), 'apps/admin/dist');
 
 export function shouldFallbackToAdminShell(pathname: string): boolean {
-  return pathname !== '/' && !pathname.startsWith('/auth/') && pathname !== '/auth' && posix.extname(pathname) === '';
+  return pathname !== '/' && !isAdminApiPath(pathname) && !pathname.startsWith('/auth/') && pathname !== '/auth' && posix.extname(pathname) === '';
+}
+
+function isAdminApiPath(pathname: string): boolean {
+  return pathname === '/api' || pathname.startsWith('/api/');
 }
 
 export function shouldServeAdminShell(pathname: string): boolean {
@@ -26,7 +30,7 @@ export function installAdminStatic(app: INestApplication): void {
   const sessions = app.get(AdminSessionService);
   instance.use('/admin', (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const pathname = req.path;
-    if (pathname === '/auth' || pathname.startsWith('/auth/')) return next();
+    if (isAdminApiPath(pathname) || pathname === '/auth' || pathname.startsWith('/auth/')) return next();
     if (!shouldRequireAdminLogin(pathname)) {
       if (shouldServeAdminShell(pathname)) return res.sendFile(shell);
       return next();

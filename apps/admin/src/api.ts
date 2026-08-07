@@ -3,6 +3,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> { const 
 export interface AdminSessionResponse { authenticated: true }
 export interface AdminCsrfResponse { csrfToken: string }
 export interface AdminLoginResponse { ok: true; returnTo: string }
+export interface AdminOverview {
+  counts: { users: number | null; activeSessions: number | null; clients: number | null; memberships: number | null; deletionRequests: number | null };
+  services: { api: 'up'; postgres: 'up' | 'down'; redis: 'up' | 'down' };
+}
+export interface DeletionQueueItem { userId: string; requestedAt: string }
 export const authApi = {
   health: () => request<HealthResponse>('/healthz'),
   currentUser: () => request<AuthenticatedUser>('/me'),
@@ -10,4 +15,6 @@ export const authApi = {
   session: () => request<AdminSessionResponse>('/admin/auth/session'),
   login: (password: string, csrfToken: string, returnTo: string) => request<AdminLoginResponse>('/admin/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify({ password, returnTo }) }),
   logout: (csrfToken: string) => request<{ ok: true }>('/admin/auth/logout', { method: 'POST', headers: { 'x-csrf-token': csrfToken } }),
+  overview: () => request<AdminOverview>('/admin/api/overview'),
+  deletionQueue: () => request<DeletionQueueItem[]>('/admin/api/deletion-queue'),
 };

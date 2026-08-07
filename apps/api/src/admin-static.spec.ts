@@ -13,6 +13,7 @@ describe('admin SPA fallback policy', () => {
     expect(shouldFallbackToAdminShell('/missing.css')).toBe(false);
     expect(shouldFallbackToAdminShell('/auth/csrf')).toBe(false);
     expect(shouldFallbackToAdminShell('/auth')).toBe(false);
+    expect(shouldFallbackToAdminShell('/api/overview')).toBe(false);
   });
 
   it('serves the shell at both admin entry paths', () => {
@@ -25,5 +26,6 @@ describe('admin SPA fallback policy', () => {
     expect(shouldRequireAdminLogin('/users')).toBe(true);
     expect(shouldRequireAdminLogin('/login')).toBe(false);
     expect(shouldRequireAdminLogin('/assets/index.js')).toBe(false);
+    expect(shouldRequireAdminLogin('/api/overview')).toBe(false);
   });
 });

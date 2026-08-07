@@ -14,6 +14,9 @@ import { ADMIN_DIST } from './admin-static';
 import { AdminAuthController } from './admin/admin-auth.controller';
 import { AdminSessionService } from './admin/admin-session.service';
 import { AdminCsrfGuard } from './admin/admin-csrf.guard';
+import { AdminDashboardController } from './admin/admin-dashboard.controller';
+import { AdminDashboardService } from './admin/admin-dashboard.service';
+import { AdminSessionGuard } from './admin/admin-session.guard';
 
 @Module({
   imports: [
@@ -29,7 +32,7 @@ import { AdminCsrfGuard } from './admin/admin-csrf.guard';
       { name: 'default', ttl: 60000, limit: 120 },
     ]),
   ],
-  controllers: [AuthController, AdminAuthController],
+  controllers: [AuthController, AdminAuthController, AdminDashboardController],
   providers: [
     SessionService,
     ClientsService,
@@ -37,6 +40,8 @@ import { AdminCsrfGuard } from './admin/admin-csrf.guard';
     UsersService,
     MembershipsService,
     AdminSessionService,
+    AdminDashboardService,
+    AdminSessionGuard,
     AdminCsrfGuard,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
