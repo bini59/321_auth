@@ -19,6 +19,8 @@ import { AdminClientsController } from './admin/admin-clients.controller';
 import { AdminManagementService } from './admin/admin-management.service';
 import { AdminAuditService } from './admin/admin-audit.service';
 import { AdminManagementController } from './admin/admin-management.controller';
+import { AdminDashboardController } from './admin/admin-dashboard.controller';
+import { AdminDashboardService } from './admin/admin-dashboard.service';
 
 @Module({
   imports: [
@@ -34,7 +36,7 @@ import { AdminManagementController } from './admin/admin-management.controller';
       { name: 'default', ttl: 60000, limit: 120 },
     ]),
   ],
-  controllers: [AuthController, AdminAuthController, AdminClientsController, AdminManagementController],
+  controllers: [AuthController, AdminAuthController, AdminClientsController, AdminManagementController, AdminDashboardController],
   providers: [
     SessionService,
     ClientsService,
@@ -46,6 +48,7 @@ import { AdminManagementController } from './admin/admin-management.controller';
     AdminSessionGuard,
     AdminManagementService,
     AdminAuditService,
+    AdminDashboardService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })

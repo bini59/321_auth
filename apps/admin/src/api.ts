@@ -9,6 +9,8 @@ export interface AdminUser { userId: string; email: string | null; emailVerified
 export interface AdminMembership { clientId: string; clientName: string; role: string; status: string; joinedAt: string; lastSeenAt: string | null }
 export interface AdminUserDetail extends AdminUser { identities: Array<{ provider: string; providerUserId: string; emailAtLink: string | null; linkedAt: string }>; memberships: AdminMembership[] }
 export interface AdminAudit { id: number; action: string; userId: string | null; clientId: string | null; details: Record<string, unknown>; createdAt: string }
+export interface AdminOverview { userCount: number | null; clientCount: number | null; activeMembershipCount: number | null; suspendedMembershipCount: number | null; services: { postgres: 'up' | 'down'; redis: 'up' | 'down' } }
+export interface DeletionQueueItem { userId: string; requestedAt: string }
 export const authApi = {
   health: () => request<HealthResponse>('/healthz'),
   currentUser: () => request<AuthenticatedUser>('/me'),
@@ -26,4 +28,6 @@ export const authApi = {
   updateMembership: (userId: string, clientId: string, csrfToken: string, update: { role?: string; status?: string }) => request<AdminMembership>(`/admin/api/users/${encodeURIComponent(userId)}/memberships/${encodeURIComponent(clientId)}`, { method: 'PATCH', headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify(update) }),
   revokeSessions: (userId: string, csrfToken: string) => request<{ ok: true }>(`/admin/api/users/${encodeURIComponent(userId)}/revoke-sessions`, { method: 'POST', headers: { 'x-csrf-token': csrfToken } }),
   audit: () => request<AdminAudit[]>('/admin/api/audit'),
+  overview: () => request<AdminOverview>('/admin/api/overview'),
+  deletionQueue: () => request<DeletionQueueItem[]>('/admin/api/deletion-queue'),
 };

@@ -1,6 +1,6 @@
 import { FormEvent, StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { authApi, type AdminAudit, type AdminClient, type AdminMembership, type AdminUser, type AdminUserDetail } from './api';
+import { authApi, type AdminAudit, type AdminClient, type AdminMembership, type AdminOverview, type AdminUser, type AdminUserDetail, type DeletionQueueItem } from './api';
 import './style.css';
 import './admin-management.css';
 
@@ -16,6 +16,8 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [csrfToken, setCsrfToken] = useState('');
   const [error, setError] = useState('');
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [deletionQueue, setDeletionQueue] = useState<DeletionQueueItem[]>([]);
   const returnTo = new URLSearchParams(window.location.search).get('return_to') || '/admin';
 
   useEffect(() => {
@@ -50,6 +52,8 @@ function Console() {
   const [search, setSearch] = useState('');
   const [audit, setAudit] = useState<AdminAudit[]>([]);
   const [error, setError] = useState('');
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [deletionQueue, setDeletionQueue] = useState<DeletionQueueItem[]>([]);
 
   useEffect(() => {
     const onHashChange = () => setSection(readSection());
@@ -60,8 +64,10 @@ function Console() {
   }, []);
 
   useEffect(() => {
+    if (section === 'overview') authApi.overview().then(setOverview).catch(() => setError('운영 현황을 불러오지 못했습니다.'));
     if (section === 'users') authApi.users(search).then(setUsers).catch(() => setError('사용자 목록을 불러오지 못했습니다.'));
     if (section === 'operations') authApi.audit().then(setAudit).catch(() => setError('감사 기록을 불러오지 못했습니다.'));
+    if (section === 'operations') authApi.deletionQueue().then(setDeletionQueue).catch(() => setError('탈퇴 대기 목록을 불러오지 못했습니다.'));
   }, [section, search]);
 
   const openUser = (user: AdminUser) => authApi.user(user.userId).then(setSelected).catch(() => setError('사용자 상세 정보를 불러오지 못했습니다.'));
@@ -81,8 +87,12 @@ function Console() {
     window.location.assign('/admin/login');
   };
 
-  return <div className="shell"><aside><div className="brand">AUTH<span>ADMIN</span></div><nav>{sections.map((item) => <button className={item === section ? 'active' : ''} key={item} onClick={() => { window.location.hash = item; }}>{item}</button>)}</nav><button className="logout" onClick={() => void logout()}>로그아웃</button></aside><main><header><div><p className="eyebrow">CENTRAL AUTHORITY</p><h1>{section}</h1></div><span className="status"><i /> API {apiStatus}</span></header>{error && <p className="error" role="alert">{error}</p>}{section === 'users' ? <UsersPanel users={users} selected={selected} search={search} onSearch={setSearch} onOpen={openUser} onMembership={updateMembership} onRevoke={revokeSessions} /> : section === 'operations' ? <AuditPanel entries={audit} /> : section === 'clients' ? <Clients csrfToken={csrfToken} /> : <section className="card"><p className="eyebrow">ADMIN CONSOLE</p><h2>{section === 'overview' ? '운영 현황을 한 곳에서 확인합니다.' : section + ' 관리 영역'}</h2><p className="muted">관리자 인증 세션으로 보호된 운영 콘솔입니다.</p></section>}</main></div>;
+  return <div className="shell"><aside><div className="brand">AUTH<span>ADMIN</span></div><nav>{sections.map((item) => <button className={item === section ? 'active' : ''} key={item} onClick={() => { window.location.hash = item; }}>{item}</button>)}</nav><button className="logout" onClick={() => void logout()}>로그아웃</button></aside><main><header><div><p className="eyebrow">CENTRAL AUTHORITY</p><h1>{section}</h1></div><span className="status"><i /> API {apiStatus}</span></header>{error && <p className="error" role="alert">{error}</p>}{section === 'overview' ? <OverviewPanel data={overview} /> : section === 'users' ? <UsersPanel users={users} selected={selected} search={search} onSearch={setSearch} onOpen={openUser} onMembership={updateMembership} onRevoke={revokeSessions} /> : section === 'operations' ? <><AuditPanel entries={audit} /><OperationsPanel items={deletionQueue} /></> : section === 'clients' ? <Clients csrfToken={csrfToken} /> : <section className="card"><p className="eyebrow">ADMIN CONSOLE</p><h2>{section} 관리 영역</h2><p className="muted">관리자 인증 세션으로 보호된 운영 콘솔입니다.</p></section>}</main></div>;
 }
+
+function OverviewPanel({ data }: { data: AdminOverview | null }) { return <section className="card"><p className="eyebrow">OPERATIONS OVERVIEW</p><h2>운영 현황</h2><div className="metric-grid"><strong>사용자 {data?.userCount ?? '확인 필요'}</strong><strong>클라이언트 {data?.clientCount ?? '확인 필요'}</strong><strong>활성 멤버십 {data?.activeMembershipCount ?? '확인 필요'}</strong><strong>정지 멤버십 {data?.suspendedMembershipCount ?? '확인 필요'}</strong></div><p className="muted">Postgres: {data?.services.postgres ?? '확인 필요'} · Redis: {data?.services.redis ?? '확인 필요'}</p></section>; }
+
+function OperationsPanel({ items }: { items: DeletionQueueItem[] }) { return <section className="card audit-list"><p className="eyebrow">DELETION QUEUE</p><h2>탈퇴 대기 항목</h2>{items.length === 0 ? <p className="muted">대기 중인 탈퇴 요청이 없습니다.</p> : items.map((item) => <div className="audit-row" key={`${item.userId}-${item.requestedAt}`}><strong>{item.userId}</strong><small>{new Date(item.requestedAt).toLocaleString()}</small></div>)}</section>; }
 
 function UsersPanel({ users, selected, search, onSearch, onOpen, onMembership, onRevoke }: { users: AdminUser[]; selected: AdminUserDetail | null; search: string; onSearch: (value: string) => void; onOpen: (user: AdminUser) => void; onMembership: (membership: AdminMembership, update: { role?: string; status?: string }) => void; onRevoke: () => void }) {
   return <div className="users-layout"><section className="card user-list"><input aria-label="사용자 검색" placeholder="이름, 이메일 또는 ID 검색" value={search} onChange={(event) => onSearch(event.target.value)} />{users.map((user) => <button className={selected?.userId === user.userId ? 'user-row active' : 'user-row'} key={user.userId} onClick={() => onOpen(user)}><strong>{user.name || '(이름 없음)'}</strong><span>{user.email || '이메일 없음'}</span><small>{user.providerCount} providers · {user.membershipCount} memberships</small></button>)}{users.length === 0 && <p className="muted">사용자가 없습니다.</p>}</section>{selected ? <section className="card user-detail"><div className="detail-head"><div><p className="eyebrow">USER DETAIL</p><h2>{selected.name || '(이름 없음)'}</h2><p className="muted">{selected.email || '이메일 없음'} · {selected.userId}</p></div><button className="danger" onClick={onRevoke}>모든 세션 폐기</button></div><h3>Provider</h3><p>{selected.identities.map((identity) => `${identity.provider} (${identity.providerUserId})`).join(', ') || '연결된 Provider 없음'}</p><h3>멤버십</h3>{selected.memberships.map((membership) => <div className="membership-row" key={membership.clientId}><div><strong>{membership.clientName}</strong><small>{membership.clientId}</small></div><select aria-label={`${membership.clientName} 상태`} value={membership.status} onChange={(event) => onMembership(membership, { status: event.target.value })}><option value="active">active</option><option value="suspended">suspended</option></select><select aria-label={`${membership.clientName} 역할`} value={membership.role} onChange={(event) => onMembership(membership, { role: event.target.value })}><option value="member">member</option><option value="admin">admin</option><option value="owner">owner</option></select></div>)}</section> : <section className="card"><p className="muted">왼쪽에서 사용자를 선택하세요.</p></section>}</div>;

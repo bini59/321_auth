@@ -14,6 +14,7 @@ describe('admin SPA fallback policy', () => {
     expect(shouldFallbackToAdminShell('/auth/csrf')).toBe(false);
     expect(shouldFallbackToAdminShell('/auth')).toBe(false);
     expect(shouldFallbackToAdminShell('/api/users')).toBe(false);
+    expect(shouldFallbackToAdminShell('/api/overview')).toBe(false);
   });
 
   it('serves the shell at both admin entry paths', () => {

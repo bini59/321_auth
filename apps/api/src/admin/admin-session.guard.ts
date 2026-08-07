@@ -6,9 +6,9 @@ import { AdminSessionService } from './admin-session.service';
 export class AdminSessionGuard implements CanActivate {
   constructor(private readonly sessions: AdminSessionService) {}
 
-  async canActivate(context: ExecutionContext) {
-    const req = context.switchToHttp().getRequest<Request>();
-    const sid = req.cookies?.admin_sid;
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<Request>();
+    const sid = request.cookies?.admin_sid;
     if (!sid || !(await this.sessions.exists(sid))) throw new UnauthorizedException();
     return true;
   }
