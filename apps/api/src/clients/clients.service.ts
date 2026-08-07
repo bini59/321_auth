@@ -15,6 +15,7 @@ export interface ClientRow extends ClientInfo {
   onboarding_path: string | null;
   secret_hash: string;
   is_active: boolean;
+  membership_count?: number;
 }
 
 export function hashAppSecret(secret: string): string {
@@ -35,9 +36,11 @@ export class ClientsService {
 
   async list(): Promise<Array<Omit<ClientRow, 'secret_hash'>>> {
     const r = await this.db.query(
-      `SELECT client_id, name, logo_url, theme_color, allowed_origins, default_redirect,
-              auto_provision, onboarding_path, is_active, created_at
-       FROM clients ORDER BY client_id`,
+      `SELECT c.client_id, c.name, c.logo_url, c.theme_color, c.allowed_origins, c.default_redirect,
+              c.auto_provision, c.onboarding_path, c.is_active, c.created_at,
+              COUNT(m.user_id)::int AS membership_count
+       FROM clients c LEFT JOIN memberships m ON m.client_id = c.client_id
+       GROUP BY c.client_id ORDER BY c.client_id`,
     );
     return r.rows;
   }

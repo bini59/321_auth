@@ -11,4 +11,6 @@ describe('validateClientInput', () => {
     expect(() => validateClientInput({ ...valid, allowed_origins: ['https://example.com.evil'] })).toThrow();
   });
   it('requires a boolean auto_provision value', () => expect(() => validateClientInput({ ...valid, auto_provision: 'true' })).toThrow());
+
+  it('accepts dots in client ids', () => expect(validateClientInput({ ...valid, client_id: 'archive.v2' }).clientId).toBe('archive.v2'));
 });

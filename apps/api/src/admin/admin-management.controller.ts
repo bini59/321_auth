@@ -3,6 +3,7 @@ import { AdminCsrfGuard } from './admin-csrf.guard';
 import { AdminSessionGuard } from './admin-session.guard';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminManagementService } from './admin-management.service';
+import { validateClientId } from '../clients/client-input';
 
 @Controller('admin/api')
 @UseGuards(AdminSessionGuard)
@@ -20,14 +21,20 @@ export class AdminManagementController {
     return this.management.getUser(userId);
   }
 
+  @Get('clients/:clientId/memberships')
+  clientMemberships(@Param('clientId') clientId: string, @Query('limit') limit?: string, @Query('offset') offset?: string) {
+    return this.management.listClientMemberships(validateClientId(clientId), this.normalizeLimit(limit), this.normalizeOffset(offset));
+  }
+
   @Patch('users/:userId/memberships/:clientId')
   @UseGuards(AdminCsrfGuard)
-  async membership(@Param('userId') userId: string, @Param('clientId') clientId: string, @Body() body: { role?: string; status?: string }) {
+  async membership(@Param('userId') userId: string, @Param('clientId') clientId: string, @Body() body: unknown) {
     try {
       this.assertUserId(userId);
-      if (!/^[a-zA-Z0-9_-]{1,64}$/.test(clientId)) throw new BadRequestException('invalid client id');
-      const result = await this.management.updateMembership(userId, clientId, body.role, body.status);
-      await this.audit.record({ action: 'membership.update', userId, clientId, details: { role: body.role, status: body.status } });
+      const validClientId = validateClientId(clientId);
+      const { status } = this.validateMembershipPatch(body);
+      const result = await this.management.updateMembership(userId, validClientId, status);
+      await this.audit.record({ action: 'membership.update', userId, clientId: validClientId, details: { status } });
       return result;
     } catch (error) {
       if (error instanceof Error && (error.message.startsWith('invalid') || error.message.endsWith('required'))) throw new BadRequestException(error.message);
@@ -49,5 +56,32 @@ export class AdminManagementController {
 
   private assertUserId(userId: string) {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) throw new BadRequestException('invalid user id');
+  }
+
+  private validateMembershipPatch(body: unknown): { status: string } {
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+      throw new BadRequestException('membership patch body must be an object');
+    }
+    const keys = Object.keys(body);
+    if (keys.length !== 1 || keys[0] !== 'status' || typeof (body as { status?: unknown }).status !== 'string') {
+      throw new BadRequestException('membership patch must contain only status');
+    }
+    return { status: (body as { status: string }).status };
+  }
+
+  private normalizeLimit(value?: string) {
+    return this.parsePaginationValue(value, 50, 100, 'limit');
+  }
+
+  private normalizeOffset(value?: string) {
+    return this.parsePaginationValue(value, 0, 100000, 'offset');
+  }
+
+  private parsePaginationValue(value: string | undefined, fallback: number, max: number, name: string) {
+    if (value === undefined) return fallback;
+    if (!/^\d+$/.test(value)) throw new BadRequestException(`invalid ${name}`);
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed > max) throw new BadRequestException(`invalid ${name}`);
+    return parsed;
   }
 }

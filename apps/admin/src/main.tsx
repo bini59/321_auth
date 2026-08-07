@@ -1,10 +1,11 @@
 import { FormEvent, StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { authApi, type AdminAudit, type AdminService, type AdminMembership, type AdminOverview, type AdminUser, type AdminUserDetail, type DeletionQueueItem } from './api';
+import { authApi, type AdminAudit, type AdminService, type AdminServiceMembership, type AdminMembership, type AdminOverview, type AdminUser, type AdminUserDetail, type DeletionQueueItem } from './api';
+import { hasMoreServiceMemberships, SERVICE_MEMBERSHIP_PAGE_SIZE, serviceMembershipMessage, type ServiceMembershipLoadState } from './service-memberships';
 import './style.css';
 import './admin-management.css';
 
-const sections = ['overview', 'users', 'memberships', 'clients', 'operations'] as const;
+const sections = ['overview', 'users', 'clients', 'operations'] as const;
 type Section = typeof sections[number];
 
 function readSection(): Section {
@@ -71,7 +72,7 @@ function Console() {
   }, [section, search]);
 
   const openUser = (user: AdminUser) => authApi.user(user.userId).then(setSelected).catch(() => setError('사용자 상세 정보를 불러오지 못했습니다.'));
-  const updateMembership = async (membership: AdminMembership, update: { role?: string; status?: string }) => {
+  const updateMembership = async (membership: AdminMembership, update: { status?: string }) => {
     if (!selected || !csrfToken || !window.confirm('이 멤버십을 변경할까요?')) return;
     try { await authApi.updateMembership(selected.userId, membership.clientId, csrfToken, update); setSelected(await authApi.user(selected.userId)); }
     catch { setError('멤버십 변경에 실패했습니다.'); }
@@ -94,14 +95,19 @@ function OverviewPanel({ data }: { data: AdminOverview | null }) { return <secti
 
 function OperationsPanel({ items }: { items: DeletionQueueItem[] }) { return <section className="card audit-list"><p className="eyebrow">DELETION QUEUE</p><h2>탈퇴 대기 항목</h2>{items.length === 0 ? <p className="muted">대기 중인 탈퇴 요청이 없습니다.</p> : items.map((item) => <div className="audit-row" key={`${item.userId}-${item.requestedAt}`}><strong>{item.userId}</strong><small>{new Date(item.requestedAt).toLocaleString()}</small></div>)}</section>; }
 
-function UsersPanel({ users, selected, search, onSearch, onOpen, onMembership, onRevoke }: { users: AdminUser[]; selected: AdminUserDetail | null; search: string; onSearch: (value: string) => void; onOpen: (user: AdminUser) => void; onMembership: (membership: AdminMembership, update: { role?: string; status?: string }) => void; onRevoke: () => void }) {
-  return <div className="users-layout"><section className="card user-list"><input aria-label="사용자 검색" placeholder="이름, 이메일 또는 ID 검색" value={search} onChange={(event) => onSearch(event.target.value)} />{users.map((user) => <button className={selected?.userId === user.userId ? 'user-row active' : 'user-row'} key={user.userId} onClick={() => onOpen(user)}><strong>{user.name || '(이름 없음)'}</strong><span>{user.email || '이메일 없음'}</span><small>{user.providerCount} providers · {user.membershipCount} memberships</small></button>)}{users.length === 0 && <p className="muted">사용자가 없습니다.</p>}</section>{selected ? <section className="card user-detail"><div className="detail-head"><div><p className="eyebrow">USER DETAIL</p><h2>{selected.name || '(이름 없음)'}</h2><p className="muted">{selected.email || '이메일 없음'} · {selected.userId}</p></div><button className="danger" onClick={onRevoke}>모든 세션 폐기</button></div><h3>Provider</h3><p>{selected.identities.map((identity) => `${identity.provider} (${identity.providerUserId})`).join(', ') || '연결된 Provider 없음'}</p><h3>멤버십</h3>{selected.memberships.map((membership) => <div className="membership-row" key={membership.clientId}><div><strong>{membership.clientName}</strong><small>{membership.clientId}</small></div><select aria-label={`${membership.clientName} 상태`} value={membership.status} onChange={(event) => onMembership(membership, { status: event.target.value })}><option value="active">active</option><option value="suspended">suspended</option></select><select aria-label={`${membership.clientName} 역할`} value={membership.role} onChange={(event) => onMembership(membership, { role: event.target.value })}><option value="member">member</option><option value="admin">admin</option><option value="owner">owner</option></select></div>)}</section> : <section className="card"><p className="muted">왼쪽에서 사용자를 선택하세요.</p></section>}</div>;
+function UsersPanel({ users, selected, search, onSearch, onOpen, onMembership, onRevoke }: { users: AdminUser[]; selected: AdminUserDetail | null; search: string; onSearch: (value: string) => void; onOpen: (user: AdminUser) => void; onMembership: (membership: AdminMembership, update: { status?: string }) => void; onRevoke: () => void }) {
+  return <div className="users-layout"><section className="card user-list"><input aria-label="사용자 검색" placeholder="이름, 이메일 또는 ID 검색" value={search} onChange={(event) => onSearch(event.target.value)} />{users.map((user) => <button className={selected?.userId === user.userId ? 'user-row active' : 'user-row'} key={user.userId} onClick={() => onOpen(user)}><strong>{user.name || '(이름 없음)'}</strong><span>{user.email || '이메일 없음'}</span><small>{user.providerCount} providers · {user.membershipCount} memberships</small></button>)}{users.length === 0 && <p className="muted">사용자가 없습니다.</p>}</section>{selected ? <section className="card user-detail"><div className="detail-head"><div><p className="eyebrow">USER DETAIL</p><h2>{selected.name || '(이름 없음)'}</h2><p className="muted">{selected.email || '이메일 없음'} · {selected.userId}</p></div><button className="danger" onClick={onRevoke}>모든 세션 폐기</button></div><h3>Provider</h3><p>{selected.identities.map((identity) => `${identity.provider} (${identity.providerUserId})`).join(', ') || '연결된 Provider 없음'}</p><h3>멤버십</h3>{selected.memberships.map((membership) => <div className="membership-row" key={membership.clientId}><div><strong>{membership.clientName}</strong><small>{membership.clientId}</small></div><select aria-label={`${membership.clientName} 상태`} value={membership.status} onChange={(event) => onMembership(membership, { status: event.target.value })}><option value="active">active</option><option value="suspended">suspended</option></select></div>)}</section> : <section className="card"><p className="muted">왼쪽에서 사용자를 선택하세요.</p></section>}</div>;
 }
 
 function AuditPanel({ entries }: { entries: AdminAudit[] }) { return <section className="card audit-list"><p className="eyebrow">AUDIT LOG</p><h2>관리 작업 기록</h2>{entries.map((entry) => <div className="audit-row" key={entry.id}><strong>{entry.action}</strong><span>{entry.userId || 'system'}{entry.clientId ? ` · ${entry.clientId}` : ''}</span><small>{new Date(entry.createdAt).toLocaleString()}</small></div>)}{entries.length === 0 && <p className="muted">기록이 없습니다.</p>}</section>; }
 
 function Clients({ csrfToken }: { csrfToken: string }) {
   const [clients, setClients] = useState<AdminService[]>([]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [memberships, setMemberships] = useState<Record<string, AdminServiceMembership[]>>({});
+  const [membershipState, setMembershipState] = useState<Record<string, 'loading' | 'ready' | 'error'>>({});
+  const [membershipHasMore, setMembershipHasMore] = useState<Record<string, boolean>>({});
+  const [membershipLoadingMore, setMembershipLoadingMore] = useState<Record<string, boolean>>({});
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState({ client_id: '', name: '', allowed_origins: '', default_redirect: '', auto_provision: false, onboarding_path: '' });
   const load = () => authApi.services().then(setClients).catch(() => setNotice('Service 목록을 불러오지 못했습니다.'));
@@ -114,7 +120,34 @@ function Clients({ csrfToken }: { csrfToken: string }) {
   const edit = async (client: AdminService) => { const name = window.prompt('Service 이름', client.name); if (!name) return; const origins = window.prompt('허용 origin (쉼표로 구분)', client.allowed_origins.join(', ')); const redirect = window.prompt('기본 redirect', client.default_redirect); if (!origins || !redirect) return; try { await authApi.updateService(client.client_id, { name, allowed_origins: origins.split(',').map((x) => x.trim()), default_redirect: redirect, auto_provision: client.auto_provision, onboarding_path: client.onboarding_path }, csrfToken); await load(); } catch { setNotice('수정에 실패했습니다. 입력값을 확인하세요.'); } };
   const setAutoProvision = async (client: AdminService, autoProvision: boolean) => { try { await authApi.updateService(client.client_id, { name: client.name, allowed_origins: client.allowed_origins, default_redirect: client.default_redirect, auto_provision: autoProvision, onboarding_path: client.onboarding_path }, csrfToken); await load(); } catch { setNotice('자동가입 정책 변경에 실패했습니다.'); } };
   const rotate = async (client: AdminService) => { const result = await authApi.rotateServiceSecret(client.client_id, csrfToken); setNotice(`${client.client_id} 새 secret: ${result.secret}`); };
-  return <div className="clients"><section className="card"><p className="eyebrow">SERVICE REGISTRY</p><h2>Service 등록</h2><form className="client-form" onSubmit={(event) => void create(event)}><input required placeholder="service_id" value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })} /><input required placeholder="Service 이름" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /><input required placeholder="허용 origin (쉼표로 구분)" value={form.allowed_origins} onChange={(e) => setForm({ ...form, allowed_origins: e.target.value })} /><input required placeholder="기본 redirect" value={form.default_redirect} onChange={(e) => setForm({ ...form, default_redirect: e.target.value })} /><input placeholder="온보딩 path" value={form.onboarding_path} onChange={(e) => setForm({ ...form, onboarding_path: e.target.value })} /><label><input type="checkbox" checked={form.auto_provision} onChange={(e) => setForm({ ...form, auto_provision: e.target.checked })} /> 신규 사용자 자동가입 허용</label><button className="primary" type="submit" disabled={!csrfToken}>등록</button></form>{notice && <p className="notice" role="status">{notice}</p>}</section><section className="card"><h2>등록된 Service</h2><div className="client-list">{clients.map((client) => <article className={client.is_active ? 'client-row' : 'client-row inactive'} key={client.client_id}><div><strong>{client.serviceName || client.name}</strong><span>{client.serviceId || client.client_id} · {client.is_active ? '활성' : '비활성'}</span><small>{client.allowed_origins.join(', ')}</small><label><input type="checkbox" checked={client.auto_provision} onChange={(e) => void setAutoProvision(client, e.target.checked)} /> 신규 사용자 자동가입 허용</label></div><div className="client-actions"><button onClick={() => void edit(client)}>수정</button><button onClick={() => void toggle(client)}>{client.is_active ? '비활성화' : '활성화'}</button><button onClick={() => void rotate(client)}>secret 재발급</button></div></article>)}</div></section></div>;
+  const loadMemberships = async (clientId: string, offset = 0) => {
+    if (offset === 0) setMembershipState((current) => ({ ...current, [clientId]: 'loading' }));
+    else setMembershipLoadingMore((current) => ({ ...current, [clientId]: true }));
+    try {
+      const result = await authApi.memberships(clientId, SERVICE_MEMBERSHIP_PAGE_SIZE, offset);
+      setMemberships((current) => ({ ...current, [clientId]: offset === 0 ? result : [...(current[clientId] || []), ...result] }));
+      setMembershipHasMore((current) => ({ ...current, [clientId]: hasMoreServiceMemberships(result.length) }));
+      setMembershipState((current) => ({ ...current, [clientId]: 'ready' }));
+    } catch {
+      if (offset === 0) setMembershipState((current) => ({ ...current, [clientId]: 'error' }));
+      else setNotice('회원 목록을 더 불러오지 못했습니다.');
+    } finally {
+      if (offset > 0) setMembershipLoadingMore((current) => ({ ...current, [clientId]: false }));
+    }
+  };
+  const toggleMemberships = async (clientId: string) => {
+    const next = !expanded[clientId];
+    setExpanded((current) => ({ ...current, [clientId]: next }));
+    if (!next || memberships[clientId]) return;
+    await loadMemberships(clientId);
+  };
+  return <div className="clients"><section className="card"><p className="eyebrow">SERVICE REGISTRY</p><h2>Service 등록</h2><form className="client-form" onSubmit={(event) => void create(event)}><input required placeholder="service_id" value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })} /><input required placeholder="Service 이름" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /><input required placeholder="허용 origin (쉼표로 구분)" value={form.allowed_origins} onChange={(e) => setForm({ ...form, allowed_origins: e.target.value })} /><input required placeholder="기본 redirect" value={form.default_redirect} onChange={(e) => setForm({ ...form, default_redirect: e.target.value })} /><input placeholder="온보딩 path" value={form.onboarding_path} onChange={(e) => setForm({ ...form, onboarding_path: e.target.value })} /><label><input type="checkbox" checked={form.auto_provision} onChange={(e) => setForm({ ...form, auto_provision: e.target.checked })} /> 신규 사용자 자동가입 허용</label><button className="primary" type="submit" disabled={!csrfToken}>등록</button></form>{notice && <p className="notice" role="status">{notice}</p>}</section><section className="card"><h2>등록된 Service</h2><div className="client-list">{clients.map((client) => <article className={client.is_active ? 'client-row' : 'client-row inactive'} key={client.client_id}><div><strong>{client.serviceName || client.name}</strong><span>{client.serviceId || client.client_id} · {client.is_active ? '활성' : '비활성'} · 회원 {client.membership_count ?? 0}명</span><small>{client.allowed_origins.join(', ')}</small><label><input type="checkbox" checked={client.auto_provision} onChange={(e) => void setAutoProvision(client, e.target.checked)} /> 신규 사용자 자동가입 허용</label></div><div className="client-actions"><button onClick={() => void toggleMemberships(client.client_id)} aria-expanded={Boolean(expanded[client.client_id])}>{expanded[client.client_id] ? '회원 목록 접기' : '회원 목록 펼치기'}</button><button onClick={() => void edit(client)}>수정</button><button onClick={() => void toggle(client)}>{client.is_active ? '비활성화' : '활성화'}</button><button onClick={() => void rotate(client)}>secret 재발급</button></div>{expanded[client.client_id] && <ServiceMembershipList state={membershipState[client.client_id]} memberships={memberships[client.client_id] || []} hasMore={Boolean(membershipHasMore[client.client_id])} loadingMore={Boolean(membershipLoadingMore[client.client_id])} onLoadMore={() => void loadMemberships(client.client_id, memberships[client.client_id]?.length || 0)} />}</article>)}</div></section></div>;
+}
+
+function ServiceMembershipList({ state, memberships, hasMore, loadingMore, onLoadMore }: { state?: ServiceMembershipLoadState; memberships: AdminServiceMembership[]; hasMore: boolean; loadingMore: boolean; onLoadMore: () => void }) {
+  const message = serviceMembershipMessage(state, memberships.length);
+  if (message) return <p className={state === 'error' ? 'error' : 'muted'} role={state === 'error' ? 'alert' : 'status'}>{message}</p>;
+  return <div className="membership-list">{memberships.map((membership) => <div className="membership-row" key={membership.userId}><div><strong>{membership.name || '(이름 없음)'}</strong><small>{membership.email || '이메일 없음'} · {membership.userId}</small></div><span>{membership.role} · {membership.status}</span><small>가입 {new Date(membership.joinedAt).toLocaleString()} · 최근 {membership.lastSeenAt ? new Date(membership.lastSeenAt).toLocaleString() : '없음'}</small></div>)}{hasMore && <button onClick={onLoadMore} disabled={loadingMore}>{loadingMore ? '불러오는 중…' : '회원 더 불러오기'}</button>}</div>;
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);

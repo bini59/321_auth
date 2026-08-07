@@ -3,7 +3,6 @@ import { DB_PROVIDER } from '../db/db.module';
 import type { DbPool } from '../db/db';
 import { SessionService } from '../sessions/session.service';
 
-const ROLES = new Set(['member', 'admin', 'owner']);
 const STATUSES = new Set(['active', 'suspended']);
 
 @Injectable()
@@ -42,18 +41,40 @@ export class AdminManagementService {
     };
   }
 
-  async updateMembership(userId: string, clientId: string, role?: string, status?: string) {
-    if (role !== undefined && !ROLES.has(role)) throw new Error('invalid role');
+  async updateMembership(userId: string, clientId: string, status?: string) {
     if (status !== undefined && !STATUSES.has(status)) throw new Error('invalid status');
-    if (role === undefined && status === undefined) throw new Error('role or status required');
+    if (status === undefined) throw new Error('status required');
     const result = await this.db.query(
-      `UPDATE memberships SET role = COALESCE($3, role), status = COALESCE($4, status)
+      `UPDATE memberships SET status = $3
         WHERE user_id = $1 AND client_id = $2 RETURNING client_id, role, status, joined_at, last_seen_at`,
-      [userId, clientId, role ?? null, status ?? null],
+      [userId, clientId, status],
     );
     if (!result.rows[0]) throw new NotFoundException('membership not found');
     const row = result.rows[0];
     return { clientId: row.client_id, role: row.role, status: row.status, joinedAt: row.joined_at, lastSeenAt: row.last_seen_at };
+  }
+
+  async listClientMemberships(clientId: string, limit: number, offset: number) {
+    const client = await this.db.query('SELECT 1 FROM clients WHERE client_id = $1', [clientId]);
+    if (!client.rows[0]) throw new NotFoundException('client not found');
+
+    const result = await this.db.query(
+      `SELECT u.id AS user_id, u.email, u.name, m.role, m.status, m.joined_at, m.last_seen_at
+         FROM users u JOIN memberships m ON m.user_id = u.id
+        WHERE m.client_id = $1
+        ORDER BY m.joined_at DESC
+        LIMIT $2 OFFSET $3`,
+      [clientId, limit, offset],
+    );
+    return result.rows.map((row) => ({
+      userId: row.user_id,
+      email: row.email,
+      name: row.name,
+      role: row.role,
+      status: row.status,
+      joinedAt: row.joined_at,
+      lastSeenAt: row.last_seen_at,
+    }));
   }
 
   async revokeAllSessions(userId: string) {

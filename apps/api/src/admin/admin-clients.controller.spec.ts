@@ -14,9 +14,9 @@ describe('AdminClientsController', () => {
   });
 
   it('exposes canonical Service fields without removing legacy client fields', async () => {
-    const service = { list: vi.fn().mockResolvedValue([{ client_id: 'archive', name: 'Archive', auto_provision: false }]) };
+    const service = { list: vi.fn().mockResolvedValue([{ client_id: 'archive', name: 'Archive', auto_provision: false, membership_count: 3 }]) };
     const result = await new AdminClientsController(service as never).list();
-    expect(result[0]).toMatchObject({ client_id: 'archive', service_id: 'archive', serviceId: 'archive', service_name: 'Archive', serviceName: 'Archive' });
+    expect(result[0]).toMatchObject({ client_id: 'archive', service_id: 'archive', serviceId: 'archive', service_name: 'Archive', serviceName: 'Archive', membership_count: 3 });
   });
 
   it('rejects conflicting canonical and legacy service identifiers', () => {

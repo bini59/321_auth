@@ -2,6 +2,12 @@ import { BadRequestException } from '@nestjs/common';
 
 const CLIENT_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
 
+export function validateClientId(input: unknown): string {
+  const clientId = typeof input === 'string' ? input.trim() : '';
+  if (!CLIENT_ID.test(clientId)) throw new BadRequestException('invalid client_id');
+  return clientId;
+}
+
 export function validateClientInput(input: {
   client_id?: unknown;
   service_id?: unknown;
@@ -13,7 +19,7 @@ export function validateClientInput(input: {
   onboarding_path?: unknown;
 }) {
   const rawClientId = input.service_id ?? input.serviceId ?? input.client_id;
-  const clientId = typeof rawClientId === 'string' ? rawClientId.trim() : '';
+  const clientId = validateClientId(rawClientId);
   const identifiers = [input.client_id, input.service_id, input.serviceId]
     .filter((value): value is string => typeof value === 'string')
     .map((value) => value.trim());
@@ -23,7 +29,6 @@ export function validateClientInput(input: {
     ? input.allowed_origins.map((value) => typeof value === 'string' ? value.trim() : '')
     : [];
   const redirect = typeof input.default_redirect === 'string' ? input.default_redirect.trim() : '';
-  if (!CLIENT_ID.test(clientId)) throw new BadRequestException('invalid client_id');
   if (!name || name.length > 120) throw new BadRequestException('invalid name');
   if (origins.length === 0 || origins.some((origin) => !isOrigin(origin))) {
     throw new BadRequestException('allowed_origins must contain valid http(s) origins');

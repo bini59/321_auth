@@ -3,7 +3,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> { const 
 export interface AdminSessionResponse { authenticated: true }
 export interface AdminCsrfResponse { csrfToken: string }
 export interface AdminLoginResponse { ok: true; returnTo: string }
-export interface AdminService { client_id: string; service_id?: string; serviceId?: string; name: string; service_name?: string; serviceName?: string; allowed_origins: string[]; default_redirect: string; auto_provision: boolean; onboarding_path: string | null; is_active: boolean; logo_url: string | null; theme_color: string | null }
+export interface AdminService { client_id: string; service_id?: string; serviceId?: string; name: string; service_name?: string; serviceName?: string; allowed_origins: string[]; default_redirect: string; auto_provision: boolean; onboarding_path: string | null; is_active: boolean; logo_url: string | null; theme_color: string | null; membership_count?: number }
 /** @deprecated Use AdminService. */
 export type AdminClient = AdminService;
 export interface AdminServiceSecretResponse { service: AdminService; client: AdminService; secret: string }
@@ -11,6 +11,7 @@ export interface AdminServiceSecretResponse { service: AdminService; client: Adm
 export type AdminClientSecretResponse = AdminServiceSecretResponse;
 export interface AdminUser { userId: string; email: string | null; emailVerified: boolean; name: string | null; avatarUrl: string | null; createdAt: string; providerCount: number; membershipCount: number }
 export interface AdminMembership { clientId: string; clientName: string; role: string; status: string; joinedAt: string; lastSeenAt: string | null }
+export interface AdminServiceMembership { userId: string; email: string | null; name: string | null; role: string; status: string; joinedAt: string; lastSeenAt: string | null }
 export interface AdminUserDetail extends AdminUser { identities: Array<{ provider: string; providerUserId: string; emailAtLink: string | null; linkedAt: string }>; memberships: AdminMembership[] }
 export interface AdminAudit { id: number; action: string; userId: string | null; clientId: string | null; details: Record<string, unknown>; createdAt: string }
 export interface AdminOverview { userCount: number | null; clientCount: number | null; activeMembershipCount: number | null; suspendedMembershipCount: number | null; services: { postgres: 'up' | 'down'; redis: 'up' | 'down' } }
@@ -35,7 +36,8 @@ export const authApi = {
   rotateClientSecret: (id: string, csrfToken: string) => authApi.rotateServiceSecret(id, csrfToken),
   users: (search = '') => request<AdminUser[]>(`/admin/api/users?search=${encodeURIComponent(search)}`),
   user: (userId: string) => request<AdminUserDetail>(`/admin/api/users/${encodeURIComponent(userId)}`),
-  updateMembership: (userId: string, clientId: string, csrfToken: string, update: { role?: string; status?: string }) => request<AdminMembership>(`/admin/api/users/${encodeURIComponent(userId)}/memberships/${encodeURIComponent(clientId)}`, { method: 'PATCH', headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify(update) }),
+  memberships: (clientId: string, limit = 50, offset = 0) => request<AdminServiceMembership[]>(`/admin/api/clients/${encodeURIComponent(clientId)}/memberships?limit=${limit}&offset=${offset}`),
+  updateMembership: (userId: string, clientId: string, csrfToken: string, update: { status?: string }) => request<AdminMembership>(`/admin/api/users/${encodeURIComponent(userId)}/memberships/${encodeURIComponent(clientId)}`, { method: 'PATCH', headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify(update) }),
   revokeSessions: (userId: string, csrfToken: string) => request<{ ok: true }>(`/admin/api/users/${encodeURIComponent(userId)}/revoke-sessions`, { method: 'POST', headers: { 'x-csrf-token': csrfToken } }),
   audit: () => request<AdminAudit[]>('/admin/api/audit'),
   overview: () => request<AdminOverview>('/admin/api/overview'),
