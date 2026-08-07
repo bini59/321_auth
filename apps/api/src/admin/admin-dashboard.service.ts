@@ -36,7 +36,7 @@ export class AdminDashboardService {
     const [users, clients, memberships, suspendedMemberships, deletionRequests, postgres, redis] = await Promise.all([
       this.count('SELECT count(*)::int AS count FROM users'),
       this.count('SELECT count(*)::int AS count FROM clients'),
-      this.count('SELECT count(*)::int AS count FROM memberships'),
+      this.count("SELECT count(*)::int AS count FROM memberships WHERE status = 'active'"),
       this.count("SELECT count(*)::int AS count FROM memberships WHERE status = 'suspended'"),
       this.count('SELECT count(*)::int AS count FROM deletion_queue'),
       this.postgresStatus(),
