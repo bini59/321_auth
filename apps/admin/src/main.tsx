@@ -1,86 +1,132 @@
-import { FormEvent, StrictMode, useEffect, useState } from 'react';
+import { StrictMode, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { authApi, type AdminAudit, type AdminService, type AdminServiceMembership, type AdminMembership, type AdminOverview, type AdminUser, type AdminUserDetail, type DeletionQueueItem } from './api';
-import { hasMoreServiceMemberships, SERVICE_MEMBERSHIP_PAGE_SIZE, serviceMembershipMessage, type ServiceMembershipLoadState } from './service-memberships';
+import {
+  authApi,
+  type AdminAudit,
+  type AdminMembership,
+  type AdminOverview,
+  type AdminUser,
+  type AdminUserDetail,
+  type DeletionQueueItem,
+} from './api';
+import './theme.css';
 import './style.css';
-import './admin-management.css';
+import { ActivityIcon, BoxIcon, GridIcon, LogoutIcon, SearchIcon, SettingsIcon, UsersIcon } from './icons';
+import { ThemeToggle } from './theme-toggle';
+import { useTheme } from './use-theme';
+import { ToastProvider, useToast } from './toast';
+import { CommandPalette, useCommandPalette, type Command } from './command-palette';
+import { OverviewSection } from './sections/overview';
+import { UsersSection } from './sections/users';
+import { ServicesSection } from './sections/services';
+import { OperationsSection } from './sections/operations';
+import { SettingsSection } from './sections/settings';
+import { LoginPage } from './sections/login';
 
-const sections = ['overview', 'users', 'clients', 'operations'] as const;
-type Section = typeof sections[number];
+const SECTIONS = ['overview', 'users', 'clients', 'operations', 'settings'] as const;
+type Section = (typeof SECTIONS)[number];
+
+const NAV: Array<{ id: Section; label: string; icon: React.ComponentType<{ size?: number }> }> = [
+  { id: 'overview', label: '개요', icon: GridIcon },
+  { id: 'users', label: '사용자', icon: UsersIcon },
+  { id: 'clients', label: '서비스', icon: BoxIcon },
+  { id: 'operations', label: '운영', icon: ActivityIcon },
+  { id: 'settings', label: '설정', icon: SettingsIcon },
+];
+const TITLE: Record<Section, string> = { overview: '개요', users: '사용자', clients: '서비스', operations: '운영', settings: '설정' };
+const BRAND = { name: 'Auth Admin', host: 'bini59.dev' };
 
 function readSection(): Section {
   const value = window.location.hash.slice(1);
-  return (sections as readonly string[]).includes(value) ? value as Section : 'overview';
+  return (SECTIONS as readonly string[]).includes(value) ? (value as Section) : 'overview';
 }
 
-function LoginPage() {
-  const [password, setPassword] = useState('');
-  const [csrfToken, setCsrfToken] = useState('');
-  const [error, setError] = useState('');
-  const [overview, setOverview] = useState<AdminOverview | null>(null);
-  const [deletionQueue, setDeletionQueue] = useState<DeletionQueueItem[]>([]);
-  const returnTo = new URLSearchParams(window.location.search).get('return_to') || '/admin';
-
-  useEffect(() => {
-    authApi.csrf().then(({ csrfToken: token }) => setCsrfToken(token)).catch(() => setError('로그인 준비에 실패했습니다.'));
-  }, []);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError('');
-    try {
-      const result = await authApi.login(password, csrfToken, returnTo);
-      window.location.assign(result.returnTo);
-    } catch {
-      setError('관리자 인증에 실패했습니다.');
-    }
-  };
-
-  return <main className="login-page"><form className="login-card" onSubmit={(event) => void submit(event)}><p className="eyebrow">AUTH ADMIN</p><h1>관리자 로그인</h1><p className="muted">운영 콘솔에 접근하려면 관리자 비밀번호가 필요합니다.</p><label htmlFor="admin-password">비밀번호</label><input id="admin-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /><button className="primary" type="submit" disabled={!csrfToken}>로그인</button>{error && <p className="error" role="alert">{error}</p>}</form></main>;
-}
-
-function App() {
-  if (window.location.pathname === '/admin/login') return <LoginPage />;
-  return <Console />;
+function SkeletonPage() {
+  return (
+    <div className="skeleton-page">
+      <div className="skeleton" style={{ height: 20, width: 180, borderRadius: 6 }} />
+      <div className="metrics">
+        {[0, 1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 96 }} />)}
+      </div>
+      <div className="skeleton" style={{ height: 280 }} />
+    </div>
+  );
 }
 
 function Console() {
+  const { toast, confirm } = useToast();
+  const { setTheme } = useTheme();
+  const palette = useCommandPalette();
+
   const [section, setSection] = useState<Section>(readSection);
-  const [apiStatus, setApiStatus] = useState('확인 중');
+  const [loading, setLoading] = useState(true);
+  const [apiUp, setApiUp] = useState<boolean | null>(null);
   const [csrfToken, setCsrfToken] = useState('');
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [selected, setSelected] = useState<AdminUserDetail | null>(null);
   const [search, setSearch] = useState('');
   const [audit, setAudit] = useState<AdminAudit[]>([]);
-  const [error, setError] = useState('');
-  const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [deletionQueue, setDeletionQueue] = useState<DeletionQueueItem[]>([]);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const onHashChange = () => setSection(readSection());
     window.addEventListener('hashchange', onHashChange);
-    authApi.health().then(() => setApiStatus('정상')).catch(() => setApiStatus('확인 필요'));
+    authApi.health().then(() => setApiUp(true)).catch(() => setApiUp(false));
     authApi.csrf().then(({ csrfToken: token }) => setCsrfToken(token)).catch(() => undefined);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
   useEffect(() => {
-    if (section === 'overview') authApi.overview().then(setOverview).catch(() => setError('운영 현황을 불러오지 못했습니다.'));
-    if (section === 'users') authApi.users(search).then(setUsers).catch(() => setError('사용자 목록을 불러오지 못했습니다.'));
-    if (section === 'operations') authApi.audit().then(setAudit).catch(() => setError('감사 기록을 불러오지 못했습니다.'));
-    if (section === 'operations') authApi.deletionQueue().then(setDeletionQueue).catch(() => setError('탈퇴 대기 목록을 불러오지 못했습니다.'));
+    let cancelled = false;
+    setError('');
+    setLoading(true);
+    const done = () => { if (!cancelled) setLoading(false); };
+
+    if (section === 'overview') {
+      authApi.overview().then((data) => !cancelled && setOverview(data)).catch(() => setError('운영 현황을 불러오지 못했습니다.')).finally(done);
+    } else if (section === 'users') {
+      authApi.users(search).then((data) => !cancelled && setUsers(data)).catch(() => setError('사용자 목록을 불러오지 못했습니다.')).finally(done);
+    } else if (section === 'operations') {
+      Promise.all([
+        authApi.audit().then((data) => !cancelled && setAudit(data)),
+        authApi.deletionQueue().then((data) => !cancelled && setDeletionQueue(data)),
+      ]).catch(() => setError('운영 기록을 불러오지 못했습니다.')).finally(done);
+    } else {
+      done();
+    }
+    return () => { cancelled = true; };
   }, [section, search]);
 
-  const openUser = (user: AdminUser) => authApi.user(user.userId).then(setSelected).catch(() => setError('사용자 상세 정보를 불러오지 못했습니다.'));
-  const updateMembership = async (membership: AdminMembership, update: { status?: string }) => {
-    if (!selected || !csrfToken || !window.confirm('이 멤버십을 변경할까요?')) return;
-    try { await authApi.updateMembership(selected.userId, membership.clientId, csrfToken, update); setSelected(await authApi.user(selected.userId)); }
-    catch { setError('멤버십 변경에 실패했습니다.'); }
+  const go = (next: Section) => { window.location.hash = next; setSection(next); };
+
+  const openUser = (user: AdminUser) =>
+    authApi.user(user.userId).then(setSelected).catch(() => toast('사용자 상세 정보를 불러오지 못했습니다.', 'danger'));
+
+  const updateMembership = async (membership: AdminMembership, update: { role?: string; status?: string }) => {
+    if (!selected || !csrfToken) return;
+    const ok = await confirm(`${membership.clientName} 회원 자격을 변경할까요?`, { confirmLabel: '변경' });
+    if (!ok) return;
+    try {
+      await authApi.updateMembership(selected.userId, membership.clientId, csrfToken, update);
+      setSelected(await authApi.user(selected.userId));
+      toast('회원 자격을 변경했습니다.');
+    } catch {
+      toast('멤버십 변경에 실패했습니다.', 'danger');
+    }
   };
+
   const revokeSessions = async () => {
-    if (!selected || !csrfToken || !window.confirm('이 사용자의 모든 세션을 폐기할까요?')) return;
-    try { await authApi.revokeSessions(selected.userId, csrfToken); setError('모든 세션을 폐기했습니다.'); }
-    catch { setError('세션 폐기에 실패했습니다.'); }
+    if (!selected || !csrfToken) return;
+    const ok = await confirm(`${selected.name || selected.userId}의 모든 세션을 폐기할까요?`, { confirmLabel: '폐기', tone: 'danger' });
+    if (!ok) return;
+    try {
+      await authApi.revokeSessions(selected.userId, csrfToken);
+      toast('모든 세션을 폐기했습니다.', 'danger');
+    } catch {
+      toast('세션 폐기에 실패했습니다.', 'danger');
+    }
   };
 
   const logout = async () => {
@@ -88,66 +134,108 @@ function Console() {
     window.location.assign('/admin/login');
   };
 
-  return <div className="shell"><aside><div className="brand">AUTH<span>ADMIN</span></div><nav>{sections.map((item) => <button className={item === section ? 'active' : ''} key={item} onClick={() => { window.location.hash = item; }}>{item === 'clients' ? 'services' : item}</button>)}</nav><button className="logout" onClick={() => void logout()}>로그아웃</button></aside><main><header><div><p className="eyebrow">CENTRAL AUTHORITY</p><h1>{section === 'clients' ? 'services' : section}</h1></div><span className="status"><i /> API {apiStatus}</span></header>{error && <p className="error" role="alert">{error}</p>}{section === 'overview' ? <OverviewPanel data={overview} /> : section === 'users' ? <UsersPanel users={users} selected={selected} search={search} onSearch={setSearch} onOpen={openUser} onMembership={updateMembership} onRevoke={revokeSessions} /> : section === 'operations' ? <><AuditPanel entries={audit} /><OperationsPanel items={deletionQueue} /></> : section === 'clients' ? <Clients csrfToken={csrfToken} /> : <section className="card"><p className="eyebrow">ADMIN CONSOLE</p><h2>{section} 관리 영역</h2><p className="muted">관리자 인증 세션으로 보호된 운영 콘솔입니다.</p></section>}</main></div>;
+  const commands = useMemo<Command[]>(() => [
+    ...NAV.map((item) => ({ id: `go-${item.id}`, label: `${item.label}(으)로 이동`, group: '이동', badge: '↵', run: () => go(item.id) })),
+    { id: 'theme-light', label: '테마: 라이트', group: '테마', badge: '☀', run: () => setTheme('light') },
+    { id: 'theme-dark', label: '테마: 다크', group: '테마', badge: '☾', run: () => setTheme('dark') },
+    { id: 'theme-system', label: '테마: 시스템', group: '테마', badge: '⌘', run: () => setTheme('system') },
+    { id: 'logout', label: '로그아웃', group: '작업', badge: '⇥', run: () => void logout() },
+    ...users.map((user) => ({
+      id: `user-${user.userId}`,
+      label: `${user.name || user.userId} 열기`,
+      group: '사용자',
+      badge: (user.name || '?').slice(0, 2),
+      run: () => { go('users'); void openUser(user); },
+    })),
+  ], [users, csrfToken]);
+
+  return (
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">A</div>
+          <div style={{ display: 'grid', gap: 1 }}>
+            <span className="brand-name">{BRAND.name}</span>
+            <span className="brand-host mono">{BRAND.host}</span>
+          </div>
+        </div>
+
+        <nav className="nav">
+          {NAV.map(({ id, label, icon: Icon }) => (
+            <button key={id} className={id === section ? 'nav-item active' : 'nav-item'} onClick={() => go(id)}>
+              <Icon />{label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="spacer" />
+
+        <div className="sidebar-foot">
+          <ThemeToggle />
+          <button className="nav-item" onClick={() => void logout()}>
+            <LogoutIcon />로그아웃
+          </button>
+        </div>
+      </aside>
+
+      <div className="content">
+        <header className="topbar">
+          <div className="crumb">
+            <span className="mono">auth</span><span>/</span><strong>{TITLE[section]}</strong>
+          </div>
+          <span className="spacer" />
+          <button className="cmdk-btn" onClick={() => palette.setOpen(true)}>
+            <SearchIcon size={13} />검색 및 명령<span className="spacer" /><kbd>⌘K</kbd>
+          </button>
+          <div className="status-pill">
+            <span className={apiUp === false ? 'dot dot--down' : 'dot dot--ok'} />
+            API {apiUp === null ? '확인 중' : apiUp ? '정상' : '확인 필요'}
+          </div>
+          <div className="avatar">KV</div>
+        </header>
+
+        <main className="page">
+          {error && <p className="error" role="alert">{error}</p>}
+          {loading ? (
+            <SkeletonPage />
+          ) : section === 'overview' ? (
+            <OverviewSection data={overview} />
+          ) : section === 'users' ? (
+            <UsersSection
+              users={users}
+              selected={selected}
+              search={search}
+              loading={loading}
+              onSearch={setSearch}
+              onOpen={(user) => void openUser(user)}
+              onCloseDetail={() => setSelected(null)}
+              onMembership={(membership, update) => void updateMembership(membership, update)}
+              onRevoke={() => void revokeSessions()}
+            />
+          ) : section === 'clients' ? (
+            <ServicesSection csrfToken={csrfToken} />
+          ) : section === 'operations' ? (
+            <OperationsSection audit={audit} queue={deletionQueue} />
+          ) : (
+            <SettingsSection />
+          )}
+        </main>
+      </div>
+
+      {palette.open && <CommandPalette commands={commands} onClose={() => palette.setOpen(false)} />}
+    </div>
+  );
 }
 
-function OverviewPanel({ data }: { data: AdminOverview | null }) { return <section className="card"><p className="eyebrow">OPERATIONS OVERVIEW</p><h2>운영 현황</h2><div className="metric-grid"><strong>사용자 {data?.userCount ?? '확인 필요'}</strong><strong>클라이언트 {data?.clientCount ?? '확인 필요'}</strong><strong>활성 멤버십 {data?.activeMembershipCount ?? '확인 필요'}</strong><strong>정지 멤버십 {data?.suspendedMembershipCount ?? '확인 필요'}</strong></div><p className="muted">Postgres: {data?.services.postgres ?? '확인 필요'} · Redis: {data?.services.redis ?? '확인 필요'}</p></section>; }
-
-function OperationsPanel({ items }: { items: DeletionQueueItem[] }) { return <section className="card audit-list"><p className="eyebrow">DELETION QUEUE</p><h2>탈퇴 대기 항목</h2>{items.length === 0 ? <p className="muted">대기 중인 탈퇴 요청이 없습니다.</p> : items.map((item) => <div className="audit-row" key={`${item.userId}-${item.requestedAt}`}><strong>{item.userId}</strong><small>{new Date(item.requestedAt).toLocaleString()}</small></div>)}</section>; }
-
-function UsersPanel({ users, selected, search, onSearch, onOpen, onMembership, onRevoke }: { users: AdminUser[]; selected: AdminUserDetail | null; search: string; onSearch: (value: string) => void; onOpen: (user: AdminUser) => void; onMembership: (membership: AdminMembership, update: { status?: string }) => void; onRevoke: () => void }) {
-  return <div className="users-layout"><section className="card user-list"><input aria-label="사용자 검색" placeholder="이름, 이메일 또는 ID 검색" value={search} onChange={(event) => onSearch(event.target.value)} />{users.map((user) => <button className={selected?.userId === user.userId ? 'user-row active' : 'user-row'} key={user.userId} onClick={() => onOpen(user)}><strong>{user.name || '(이름 없음)'}</strong><span>{user.email || '이메일 없음'}</span><small>{user.providerCount} providers · {user.membershipCount} memberships</small></button>)}{users.length === 0 && <p className="muted">사용자가 없습니다.</p>}</section>{selected ? <section className="card user-detail"><div className="detail-head"><div><p className="eyebrow">USER DETAIL</p><h2>{selected.name || '(이름 없음)'}</h2><p className="muted">{selected.email || '이메일 없음'} · {selected.userId}</p></div><button className="danger" onClick={onRevoke}>모든 세션 폐기</button></div><h3>Provider</h3><p>{selected.identities.map((identity) => `${identity.provider} (${identity.providerUserId})`).join(', ') || '연결된 Provider 없음'}</p><h3>멤버십</h3>{selected.memberships.map((membership) => <div className="membership-row" key={membership.clientId}><div><strong>{membership.clientName}</strong><small>{membership.clientId}</small></div><select aria-label={`${membership.clientName} 상태`} value={membership.status} onChange={(event) => onMembership(membership, { status: event.target.value })}><option value="active">active</option><option value="suspended">suspended</option></select></div>)}</section> : <section className="card"><p className="muted">왼쪽에서 사용자를 선택하세요.</p></section>}</div>;
+function App() {
+  if (window.location.pathname === '/admin/login') return <LoginPage brandName={BRAND.name} host={BRAND.host} />;
+  return <Console />;
 }
 
-function AuditPanel({ entries }: { entries: AdminAudit[] }) { return <section className="card audit-list"><p className="eyebrow">AUDIT LOG</p><h2>관리 작업 기록</h2>{entries.map((entry) => <div className="audit-row" key={entry.id}><strong>{entry.action}</strong><span>{entry.userId || 'system'}{entry.clientId ? ` · ${entry.clientId}` : ''}</span><small>{new Date(entry.createdAt).toLocaleString()}</small></div>)}{entries.length === 0 && <p className="muted">기록이 없습니다.</p>}</section>; }
-
-function Clients({ csrfToken }: { csrfToken: string }) {
-  const [clients, setClients] = useState<AdminService[]>([]);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [memberships, setMemberships] = useState<Record<string, AdminServiceMembership[]>>({});
-  const [membershipState, setMembershipState] = useState<Record<string, 'loading' | 'ready' | 'error'>>({});
-  const [membershipHasMore, setMembershipHasMore] = useState<Record<string, boolean>>({});
-  const [membershipLoadingMore, setMembershipLoadingMore] = useState<Record<string, boolean>>({});
-  const [notice, setNotice] = useState('');
-  const [form, setForm] = useState({ client_id: '', name: '', allowed_origins: '', default_redirect: '', auto_provision: false, onboarding_path: '' });
-  const load = () => authApi.services().then(setClients).catch(() => setNotice('Service 목록을 불러오지 못했습니다.'));
-  useEffect(() => { void load(); }, []);
-  const create = async (event: FormEvent) => {
-    event.preventDefault(); setNotice('');
-    try { const result = await authApi.createService({ service_id: form.client_id, name: form.name, allowed_origins: form.allowed_origins.split(',').map((x) => x.trim()), default_redirect: form.default_redirect, auto_provision: form.auto_provision, onboarding_path: form.onboarding_path || null }, csrfToken); setNotice(`생성됨. 새 secret: ${result.secret}`); setForm({ client_id: '', name: '', allowed_origins: '', default_redirect: '', auto_provision: false, onboarding_path: '' }); await load(); } catch { setNotice('생성에 실패했습니다. 입력값을 확인하세요.'); }
-  };
-  const toggle = async (client: AdminService) => { await authApi.setServiceActive(client.client_id, !client.is_active, csrfToken); await load(); };
-  const edit = async (client: AdminService) => { const name = window.prompt('Service 이름', client.name); if (!name) return; const origins = window.prompt('허용 origin (쉼표로 구분)', client.allowed_origins.join(', ')); const redirect = window.prompt('기본 redirect', client.default_redirect); if (!origins || !redirect) return; try { await authApi.updateService(client.client_id, { name, allowed_origins: origins.split(',').map((x) => x.trim()), default_redirect: redirect, auto_provision: client.auto_provision, onboarding_path: client.onboarding_path }, csrfToken); await load(); } catch { setNotice('수정에 실패했습니다. 입력값을 확인하세요.'); } };
-  const setAutoProvision = async (client: AdminService, autoProvision: boolean) => { try { await authApi.updateService(client.client_id, { name: client.name, allowed_origins: client.allowed_origins, default_redirect: client.default_redirect, auto_provision: autoProvision, onboarding_path: client.onboarding_path }, csrfToken); await load(); } catch { setNotice('자동가입 정책 변경에 실패했습니다.'); } };
-  const rotate = async (client: AdminService) => { const result = await authApi.rotateServiceSecret(client.client_id, csrfToken); setNotice(`${client.client_id} 새 secret: ${result.secret}`); };
-  const loadMemberships = async (clientId: string, offset = 0) => {
-    if (offset === 0) setMembershipState((current) => ({ ...current, [clientId]: 'loading' }));
-    else setMembershipLoadingMore((current) => ({ ...current, [clientId]: true }));
-    try {
-      const result = await authApi.memberships(clientId, SERVICE_MEMBERSHIP_PAGE_SIZE, offset);
-      setMemberships((current) => ({ ...current, [clientId]: offset === 0 ? result : [...(current[clientId] || []), ...result] }));
-      setMembershipHasMore((current) => ({ ...current, [clientId]: hasMoreServiceMemberships(result.length) }));
-      setMembershipState((current) => ({ ...current, [clientId]: 'ready' }));
-    } catch {
-      if (offset === 0) setMembershipState((current) => ({ ...current, [clientId]: 'error' }));
-      else setNotice('회원 목록을 더 불러오지 못했습니다.');
-    } finally {
-      if (offset > 0) setMembershipLoadingMore((current) => ({ ...current, [clientId]: false }));
-    }
-  };
-  const toggleMemberships = async (clientId: string) => {
-    const next = !expanded[clientId];
-    setExpanded((current) => ({ ...current, [clientId]: next }));
-    if (!next || memberships[clientId]) return;
-    await loadMemberships(clientId);
-  };
-  return <div className="clients"><section className="card"><p className="eyebrow">SERVICE REGISTRY</p><h2>Service 등록</h2><form className="client-form" onSubmit={(event) => void create(event)}><input required placeholder="service_id" value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })} /><input required placeholder="Service 이름" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /><input required placeholder="허용 origin (쉼표로 구분)" value={form.allowed_origins} onChange={(e) => setForm({ ...form, allowed_origins: e.target.value })} /><input required placeholder="기본 redirect" value={form.default_redirect} onChange={(e) => setForm({ ...form, default_redirect: e.target.value })} /><input placeholder="온보딩 path" value={form.onboarding_path} onChange={(e) => setForm({ ...form, onboarding_path: e.target.value })} /><label><input type="checkbox" checked={form.auto_provision} onChange={(e) => setForm({ ...form, auto_provision: e.target.checked })} /> 신규 사용자 자동가입 허용</label><button className="primary" type="submit" disabled={!csrfToken}>등록</button></form>{notice && <p className="notice" role="status">{notice}</p>}</section><section className="card"><h2>등록된 Service</h2><div className="client-list">{clients.map((client) => <article className={client.is_active ? 'client-row' : 'client-row inactive'} key={client.client_id}><div><strong>{client.serviceName || client.name}</strong><span>{client.serviceId || client.client_id} · {client.is_active ? '활성' : '비활성'} · 회원 {client.membership_count ?? 0}명</span><small>{client.allowed_origins.join(', ')}</small><label><input type="checkbox" checked={client.auto_provision} onChange={(e) => void setAutoProvision(client, e.target.checked)} /> 신규 사용자 자동가입 허용</label></div><div className="client-actions"><button onClick={() => void toggleMemberships(client.client_id)} aria-expanded={Boolean(expanded[client.client_id])}>{expanded[client.client_id] ? '회원 목록 접기' : '회원 목록 펼치기'}</button><button onClick={() => void edit(client)}>수정</button><button onClick={() => void toggle(client)}>{client.is_active ? '비활성화' : '활성화'}</button><button onClick={() => void rotate(client)}>secret 재발급</button></div>{expanded[client.client_id] && <ServiceMembershipList state={membershipState[client.client_id]} memberships={memberships[client.client_id] || []} hasMore={Boolean(membershipHasMore[client.client_id])} loadingMore={Boolean(membershipLoadingMore[client.client_id])} onLoadMore={() => void loadMemberships(client.client_id, memberships[client.client_id]?.length || 0)} />}</article>)}</div></section></div>;
-}
-
-function ServiceMembershipList({ state, memberships, hasMore, loadingMore, onLoadMore }: { state?: ServiceMembershipLoadState; memberships: AdminServiceMembership[]; hasMore: boolean; loadingMore: boolean; onLoadMore: () => void }) {
-  const message = serviceMembershipMessage(state, memberships.length);
-  if (message) return <p className={state === 'error' ? 'error' : 'muted'} role={state === 'error' ? 'alert' : 'status'}>{message}</p>;
-  return <div className="membership-list">{memberships.map((membership) => <div className="membership-row" key={membership.userId}><div><strong>{membership.name || '(이름 없음)'}</strong><small>{membership.email || '이메일 없음'} · {membership.userId}</small></div><span>{membership.role} · {membership.status}</span><small>가입 {new Date(membership.joinedAt).toLocaleString()} · 최근 {membership.lastSeenAt ? new Date(membership.lastSeenAt).toLocaleString() : '없음'}</small></div>)}{hasMore && <button onClick={onLoadMore} disabled={loadingMore}>{loadingMore ? '불러오는 중…' : '회원 더 불러오기'}</button>}</div>;
-}
-
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <ToastProvider>
+      <App />
+    </ToastProvider>
+  </StrictMode>,
+);
