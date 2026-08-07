@@ -9,6 +9,7 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  ForbiddenException,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -189,6 +190,7 @@ export class AuthController {
       await this.memberships.ensure(user.id, clientId);
       membership = await this.memberships.find(user.id, clientId);
     }
+    if (membership?.status === 'suspended') throw new ForbiddenException('membership suspended');
     this.memberships.touch(user.id, clientId);
     await this.sessions.touch(sid, user.id);
 
