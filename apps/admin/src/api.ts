@@ -58,7 +58,7 @@ export const authApi = {
   users: (search = '') => request<AdminUser[]>(`/admin/api/users?search=${encodeURIComponent(search)}`),
   user: (userId: string) => request<AdminUserDetail>(`/admin/api/users/${encodeURIComponent(userId)}`),
   memberships: (clientId: string, limit = 50, offset = 0) => request<AdminServiceMembership[]>(`/admin/api/clients/${encodeURIComponent(clientId)}/memberships?limit=${limit}&offset=${offset}`),
-  updateMembership: (userId: string, clientId: string, csrfToken: string, update: { status?: string }) => request<AdminMembership>(`/admin/api/users/${encodeURIComponent(userId)}/memberships/${encodeURIComponent(clientId)}`, { method: 'PATCH', headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify(update) }),
+  updateMembership: (userId: string, clientId: string, csrfToken: string, update: { role?: string; status?: string }) => request<AdminMembership>(`/admin/api/users/${encodeURIComponent(userId)}/memberships/${encodeURIComponent(clientId)}`, { method: 'PATCH', headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify(update) }),
   revokeSessions: (userId: string, csrfToken: string) => request<{ ok: true }>(`/admin/api/users/${encodeURIComponent(userId)}/revoke-sessions`, { method: 'POST', headers: { 'x-csrf-token': csrfToken } }),
   audit: () => request<AdminAudit[]>('/admin/api/audit'),
   overview: () => request<AdminOverview>('/admin/api/overview'),

@@ -5,7 +5,7 @@ describe('AdminManagementService', () => {
   it('rejects invalid membership statuses before touching the database', async () => {
     const db = { query: vi.fn() };
     const service = new AdminManagementService(db as never, { revokeAll: vi.fn() } as never);
-    await expect(service.updateMembership('u', 'c', 'superuser')).rejects.toThrow('invalid status');
+    await expect(service.updateMembership('u', 'c', { status: 'superuser' })).rejects.toThrow('invalid status');
     expect(db.query).not.toHaveBeenCalled();
   });
 
@@ -13,11 +13,26 @@ describe('AdminManagementService', () => {
     const db = { query: vi.fn().mockResolvedValue({ rows: [{ client_id: 'c', role: 'admin', status: 'suspended', joined_at: 'joined', last_seen_at: null }] }) };
     const service = new AdminManagementService(db as never, { revokeAll: vi.fn() } as never);
 
-    await expect(service.updateMembership('u', 'c', 'suspended')).resolves.toEqual({ clientId: 'c', role: 'admin', status: 'suspended', joinedAt: 'joined', lastSeenAt: null });
+    await expect(service.updateMembership('u', 'c', { status: 'suspended' })).resolves.toEqual({ clientId: 'c', role: 'admin', status: 'suspended', joinedAt: 'joined', lastSeenAt: null });
     expect(db.query).toHaveBeenCalledWith(
-      expect.stringContaining('UPDATE memberships SET status = $3'),
-      ['u', 'c', 'suspended'],
+      expect.stringContaining('UPDATE memberships SET role = COALESCE($3, role), status = COALESCE($4, status)'),
+      ['u', 'c', null, 'suspended'],
     );
+  });
+
+  it('updates only role while preserving membership status', async () => {
+    const db = { query: vi.fn().mockResolvedValue({ rows: [{ client_id: 'c', role: 'admin', status: 'active', joined_at: 'joined', last_seen_at: null }] }) };
+    const service = new AdminManagementService(db as never, { revokeAll: vi.fn() } as never);
+
+    await expect(service.updateMembership('u', 'c', { role: 'admin' })).resolves.toEqual({ clientId: 'c', role: 'admin', status: 'active', joinedAt: 'joined', lastSeenAt: null });
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining('SET role = COALESCE($3, role)'), ['u', 'c', 'admin', null]);
+  });
+
+  it('rejects invalid membership roles before touching the database', async () => {
+    const db = { query: vi.fn() };
+    const service = new AdminManagementService(db as never, { revokeAll: vi.fn() } as never);
+    await expect(service.updateMembership('u', 'c', { role: 'superuser' })).rejects.toThrow('invalid role');
+    expect(db.query).not.toHaveBeenCalled();
   });
 
   it('lists a service membership roster in newest-joined order with bounded pagination', async () => {

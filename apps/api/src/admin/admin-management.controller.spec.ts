@@ -47,7 +47,6 @@ describe('AdminManagementController', () => {
     ['null', null],
     ['undefined', undefined],
     ['array', []],
-    ['role field', { role: 'admin', status: 'active' }],
     ['unknown field', { status: 'active', extra: true }],
     ['missing status', {}],
     ['non-string status', { status: null }],
@@ -63,8 +62,19 @@ describe('AdminManagementController', () => {
 
     await controller.membership('00000000-0000-4000-8000-000000000001', 'c', { status: 'suspended' });
 
-    expect(management.updateMembership).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000001', 'c', 'suspended');
+    expect(management.updateMembership).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000001', 'c', { status: 'suspended' });
     expect(audit.record).toHaveBeenCalledWith({ action: 'membership.update', userId: '00000000-0000-4000-8000-000000000001', clientId: 'c', details: { status: 'suspended' } });
+  });
+
+  it('passes a role-only membership patch', async () => {
+    const management = { updateMembership: vi.fn().mockResolvedValue({ role: 'admin' }) };
+    const audit = { record: vi.fn().mockResolvedValue(undefined) };
+    const controller = new AdminManagementController(management as never, audit as never);
+
+    await controller.membership('00000000-0000-4000-8000-000000000001', 'c', { role: 'admin' });
+
+    expect(management.updateMembership).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000001', 'c', { role: 'admin' });
+    expect(audit.record).toHaveBeenCalledWith({ action: 'membership.update', userId: '00000000-0000-4000-8000-000000000001', clientId: 'c', details: { role: 'admin' } });
   });
 
   it('rejects malformed identifiers at the HTTP boundary', async () => {

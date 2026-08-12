@@ -4,6 +4,7 @@ import type { DbPool } from '../db/db';
 import { SessionService } from '../sessions/session.service';
 
 const STATUSES = new Set(['active', 'suspended']);
+const ROLES = new Set(['member', 'admin', 'owner']);
 
 @Injectable()
 export class AdminManagementService {
@@ -41,13 +42,14 @@ export class AdminManagementService {
     };
   }
 
-  async updateMembership(userId: string, clientId: string, status?: string) {
-    if (status !== undefined && !STATUSES.has(status)) throw new Error('invalid status');
-    if (status === undefined) throw new Error('status required');
+  async updateMembership(userId: string, clientId: string, input: { role?: string; status?: string }) {
+    if (input.status !== undefined && !STATUSES.has(input.status)) throw new Error('invalid status');
+    if (input.role !== undefined && !ROLES.has(input.role)) throw new Error('invalid role');
+    if (input.status === undefined && input.role === undefined) throw new Error('membership update required');
     const result = await this.db.query(
-      `UPDATE memberships SET status = $3
+      `UPDATE memberships SET role = COALESCE($3, role), status = COALESCE($4, status)
         WHERE user_id = $1 AND client_id = $2 RETURNING client_id, role, status, joined_at, last_seen_at`,
-      [userId, clientId, status],
+      [userId, clientId, input.role ?? null, input.status ?? null],
     );
     if (!result.rows[0]) throw new NotFoundException('membership not found');
     const row = result.rows[0];

@@ -32,9 +32,9 @@ export class AdminManagementController {
     try {
       this.assertUserId(userId);
       const validClientId = validateClientId(clientId);
-      const { status } = this.validateMembershipPatch(body);
-      const result = await this.management.updateMembership(userId, validClientId, status);
-      await this.audit.record({ action: 'membership.update', userId, clientId: validClientId, details: { status } });
+      const update = this.validateMembershipPatch(body);
+      const result = await this.management.updateMembership(userId, validClientId, update);
+      await this.audit.record({ action: 'membership.update', userId, clientId: validClientId, details: update });
       return result;
     } catch (error) {
       if (error instanceof Error && (error.message.startsWith('invalid') || error.message.endsWith('required'))) throw new BadRequestException(error.message);
@@ -58,15 +58,18 @@ export class AdminManagementController {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) throw new BadRequestException('invalid user id');
   }
 
-  private validateMembershipPatch(body: unknown): { status: string } {
+  private validateMembershipPatch(body: unknown): { role?: string; status?: string } {
     if (body === null || typeof body !== 'object' || Array.isArray(body)) {
       throw new BadRequestException('membership patch body must be an object');
     }
     const keys = Object.keys(body);
-    if (keys.length !== 1 || keys[0] !== 'status' || typeof (body as { status?: unknown }).status !== 'string') {
-      throw new BadRequestException('membership patch must contain only status');
+    const input = body as { role?: unknown; status?: unknown };
+    if (keys.length === 0 || keys.some((key) => key !== 'role' && key !== 'status') ||
+        (input.role !== undefined && typeof input.role !== 'string') ||
+        (input.status !== undefined && typeof input.status !== 'string')) {
+      throw new BadRequestException('membership patch must contain role and/or status');
     }
-    return { status: (body as { status: string }).status };
+    return { role: input.role as string | undefined, status: input.status as string | undefined };
   }
 
   private normalizeLimit(value?: string) {
