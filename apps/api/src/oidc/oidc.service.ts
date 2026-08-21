@@ -17,12 +17,13 @@ export type NormalizedIdentity = {
 
 interface OauthState {
   provider: string;
-  clientId: string;
+  clientId: string | null;
   returnTo: string;
   verifier: string;
   nonce: string;
-  mode?: 'login' | 'link';
+  mode?: 'login' | 'link' | 'account-login' | 'account-link';
   existingUserId?: string;
+  existingSessionId?: string;
 }
 
 const OAUTH_STATE_TTL = 600;
@@ -42,9 +43,9 @@ export class OidcService {
 
   async buildAuthUrl(
     provider: ProviderName,
-    clientId: string,
+    clientId: string | null,
     returnTo: string,
-    opts: { mode?: 'login' | 'link'; existingUserId?: string } = {},
+    opts: { mode?: 'login' | 'link' | 'account-login' | 'account-link'; existingUserId?: string; existingSessionId?: string } = {},
   ): Promise<string> {
     const cfg = PROVIDERS[provider];
     const state = randomBytes(32).toString('base64url');
@@ -54,12 +55,13 @@ export class OidcService {
 
     const payload: OauthState = {
       provider,
-      clientId,
+      clientId: clientId || null,
       returnTo,
       verifier,
       nonce,
       mode: opts.mode,
       existingUserId: opts.existingUserId,
+      existingSessionId: opts.existingSessionId,
     };
 
     await this.client().set(`oauth_state:${state}`, JSON.stringify(payload), 'EX', OAUTH_STATE_TTL);
@@ -74,6 +76,10 @@ export class OidcService {
     url.searchParams.set('code_challenge', challenge);
     url.searchParams.set('code_challenge_method', 'S256');
     return url.toString();
+  }
+
+  async buildAccountAuthUrl(provider: ProviderName, mode: 'account-login' | 'account-link', existingUserId?: string, existingSessionId?: string) {
+    return this.buildAuthUrl(provider, null, `${ENV.authOrigin}/client`, { mode, existingUserId, existingSessionId });
   }
 
   // GETDEL — state 1회만 소비 (리플레이 차단)

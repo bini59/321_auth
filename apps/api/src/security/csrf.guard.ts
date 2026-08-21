@@ -9,7 +9,10 @@ export class CsrfGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest();
     const cookie: string | undefined = req.cookies?.[this.cookieName];
-    const header: string | undefined = req.headers['x-csrf-token'];
+    const queryToken = ['/logout', '/account/profile', '/account/avatar'].includes(req.path)
+      ? req.query?.csrf
+      : undefined;
+    const header: string | undefined = req.headers['x-csrf-token'] ?? queryToken;
     if (!cookie || !header) throw new ForbiddenException('csrf token missing');
 
     const a = Buffer.from(String(cookie));

@@ -43,7 +43,10 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-auth_svc}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-auth_db}
       REDIS_URL: redis://redis:6379
+      PROFILE_STORAGE_DIR: /var/lib/321-auth/profile
       PORT: 3000
+    volumes:
+      - ${PROFILE_STORAGE_PATH:-/home/ubuntu/logos/profile}:/var/lib/321-auth/profile:rw
     # 호스트에서만 바인딩 — 외부 접근은 cloudflared tunnel이 담당
     ports:
       - "127.0.0.1:3002:3000"

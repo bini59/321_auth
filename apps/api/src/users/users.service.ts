@@ -9,12 +9,34 @@ export class UsersService {
 
   async findById(userId: string) {
     const r = await this.db.query(
-      `SELECT id, email, email_verified, name, avatar_url, created_at FROM users WHERE id = $1`,
+      `SELECT id, email, email_verified, name, avatar_url, profile_completed_at, created_at FROM users WHERE id = $1`,
       [userId],
     );
     if (!r.rows[0]) return null;
     const u = r.rows[0];
     return { ...u, email_verified: Boolean(u.email_verified) };
+  }
+
+  async identities(userId: string) {
+    const r = await this.db.query(
+      `SELECT provider, linked_at FROM identities WHERE user_id = $1 ORDER BY linked_at ASC`,
+      [userId],
+    );
+    return r.rows.map((row) => ({ provider: row.provider, linkedAt: row.linked_at }));
+  }
+
+  async updateProfile(userId: string, name: string, avatarUrl?: string) {
+    const r = await this.db.query(
+      `UPDATE users SET
+         name = $2,
+         avatar_url = COALESCE($3, avatar_url),
+         avatar_source = CASE WHEN $3 IS NULL THEN avatar_source ELSE 'custom' END,
+         profile_completed_at = now()
+       WHERE id = $1
+       RETURNING id, email, email_verified, name, avatar_url, profile_completed_at, created_at`,
+      [userId, name, avatarUrl ?? null],
+    );
+    return r.rows[0] ?? null;
   }
 
   async requestDeletion(userId: string): Promise<void> {
@@ -62,7 +84,7 @@ export class UsersService {
         await client.query(
           `UPDATE users SET
              name = COALESCE($2, name),
-             avatar_url = COALESCE($3, avatar_url),
+             avatar_url = CASE WHEN avatar_source = 'provider' THEN COALESCE($3, avatar_url) ELSE avatar_url END,
              email = CASE WHEN $4 THEN COALESCE($5, email) ELSE email END
            WHERE id = $1`,
           [existingUserId, id.name, id.avatarUrl, id.emailVerified, id.email],
@@ -94,7 +116,7 @@ export class UsersService {
         await client.query(
           `UPDATE users SET
              name = COALESCE($2, name),
-             avatar_url = COALESCE($3, avatar_url),
+             avatar_url = CASE WHEN avatar_source = 'provider' THEN COALESCE($3, avatar_url) ELSE avatar_url END,
              email = CASE WHEN $4 THEN COALESCE($5, email) ELSE email END,
              email_verified = email_verified OR $4
            WHERE id = $1`,
@@ -111,8 +133,8 @@ export class UsersService {
           .rowCount ?? 0) > 0;
 
       const inserted = await client.query(
-        `INSERT INTO users (email, email_verified, name, avatar_url)
-         VALUES ($1, $2, $3, $4) RETURNING id`,
+        `INSERT INTO users (email, email_verified, name, avatar_url, avatar_source)
+         VALUES ($1, $2, $3, $4, 'provider') RETURNING id`,
         [taken ? null : id.email, !taken && id.emailVerified, id.name, id.avatarUrl],
       );
       const userId = inserted.rows[0].id as string;

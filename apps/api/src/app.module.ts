@@ -21,6 +21,7 @@ import { AdminAuditService } from './admin/admin-audit.service';
 import { AdminManagementController } from './admin/admin-management.controller';
 import { AdminDashboardController } from './admin/admin-dashboard.controller';
 import { AdminDashboardService } from './admin/admin-dashboard.service';
+import { ProfileService } from './profile/profile.service';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { AdminDashboardService } from './admin/admin-dashboard.service';
     AdminManagementService,
     AdminAuditService,
     AdminDashboardService,
+    ProfileService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })

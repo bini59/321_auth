@@ -22,6 +22,7 @@ const { SessionService } = require('../../dist/sessions/session.service.js');
 const { UsersService } = require('../../dist/users/users.service.js');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { MembershipsService } = require('../../dist/memberships/memberships.service.js');
+const { ProfileService } = require('../../dist/profile/profile.service.js');
 
 const USER_ID = '00000000-0000-0000-0000-000000000033';
 const APP_SECRET = 'e2e-alpha-secret';
@@ -47,10 +48,12 @@ class FakeSessions {
 
 class FakeUsers {
   deleted = false;
-  async findById(id: string) { return id === USER_ID && !this.deleted ? { id, email: 'e2e@example.test', name: 'E2E User', avatar_url: null } : null; }
+  async findById(id: string) { return id === USER_ID && !this.deleted ? { id, email: 'e2e@example.test', name: 'E2E User', avatar_url: null, profile_completed_at: '2026-08-07T00:00:00.000Z' } : null; }
   async upsertFromProvider() { return USER_ID; }
   async requestDeletion() { this.deleted = true; }
 }
+
+class FakeProfile { async saveAvatar() { return 'https://static.example/profile.png'; } async deleteAvatar() {} }
 
 class FakeMemberships {
   private readonly memberships = new Map<string, { role: string; status: string; joinedAt: string }>();
@@ -101,6 +104,7 @@ class MockProvider {
     { provide: SessionService, useClass: FakeSessions },
     { provide: UsersService, useClass: FakeUsers },
     { provide: MembershipsService, useClass: FakeMemberships },
+    { provide: ProfileService, useClass: FakeProfile },
     { provide: AppSecretGuard, useFactory: (clients: FakeClients) => new AppSecretGuard(clients as never), inject: [ClientsService] },
     CsrfGuard,
     { provide: MockProvider, useFactory: () => provider },
@@ -156,6 +160,13 @@ test('auto_provision=false preserves an existing active membership', async ({ pa
   await memberships.ensure(USER_ID, 'beta');
   const verify = await page.request.get(`${origin}/verify?client_id=beta`, { headers: { 'x-app-secret': APP_SECRET } });
   expect(await verify.json()).toMatchObject({ userId: USER_ID, membership: { status: 'active' } });
+});
+
+test('OAuth callback requires the initiating browser state cookie', async ({ page }) => {
+  const response = await page.request.get(`${origin}/login/google?client_id=alpha&return_to=${encodeURIComponent(CLIENTS.alpha.default_redirect)}`, { maxRedirects: 0 });
+  const state = new URL(response.headers().location!, origin).searchParams.get('state');
+  await page.context().clearCookies();
+  expect((await page.request.get(`${origin}/callback/google?state=${state}&code=x`)).status()).toBe(400);
 });
 
 test('state is single-use and rejects provider mismatch', async ({ page }) => {

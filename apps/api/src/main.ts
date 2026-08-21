@@ -9,7 +9,13 @@ import { installAdminStatic } from './admin-static';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: ['log', 'error', 'warn'] });
-  app.use(helmet());
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        imgSrc: ["'self'", 'data:', ENV.staticOrigin],
+      },
+    },
+  }));
   app.use(cookieParser());
   installAdminStatic(app);
 
