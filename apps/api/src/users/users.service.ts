@@ -25,16 +25,17 @@ export class UsersService {
     return r.rows.map((row) => ({ provider: row.provider, linkedAt: row.linked_at }));
   }
 
-  async updateProfile(userId: string, name: string, avatarUrl?: string) {
+  async updateProfile(userId: string, name?: string, avatarUrl?: string) {
     const r = await this.db.query(
       `UPDATE users SET
-         name = $2,
+         name = COALESCE($2, name),
+         name_source = CASE WHEN $2 IS NULL THEN name_source ELSE 'custom' END,
          avatar_url = COALESCE($3, avatar_url),
          avatar_source = CASE WHEN $3 IS NULL THEN avatar_source ELSE 'custom' END,
          profile_completed_at = now()
        WHERE id = $1
        RETURNING id, email, email_verified, name, avatar_url, profile_completed_at, created_at`,
-      [userId, name, avatarUrl ?? null],
+      [userId, name ?? null, avatarUrl ?? null],
     );
     return r.rows[0] ?? null;
   }
@@ -83,7 +84,7 @@ export class UsersService {
       if (id.name || id.avatarUrl || (id.emailVerified && id.email)) {
         await client.query(
           `UPDATE users SET
-             name = COALESCE($2, name),
+             name = CASE WHEN name_source = 'provider' THEN COALESCE($2, name) ELSE name END,
              avatar_url = CASE WHEN avatar_source = 'provider' THEN COALESCE($3, avatar_url) ELSE avatar_url END,
              email = CASE WHEN $4 THEN COALESCE($5, email) ELSE email END
            WHERE id = $1`,
@@ -115,7 +116,7 @@ export class UsersService {
         const userId = existing.rows[0].user_id;
         await client.query(
           `UPDATE users SET
-             name = COALESCE($2, name),
+             name = CASE WHEN name_source = 'provider' THEN COALESCE($2, name) ELSE name END,
              avatar_url = CASE WHEN avatar_source = 'provider' THEN COALESCE($3, avatar_url) ELSE avatar_url END,
              email = CASE WHEN $4 THEN COALESCE($5, email) ELSE email END,
              email_verified = email_verified OR $4
@@ -133,8 +134,8 @@ export class UsersService {
           .rowCount ?? 0) > 0;
 
       const inserted = await client.query(
-        `INSERT INTO users (email, email_verified, name, avatar_url, avatar_source)
-         VALUES ($1, $2, $3, $4, 'provider') RETURNING id`,
+        `INSERT INTO users (email, email_verified, name, avatar_url, name_source, avatar_source)
+         VALUES ($1, $2, $3, $4, 'provider', 'provider') RETURNING id`,
         [taken ? null : id.email, !taken && id.emailVerified, id.name, id.avatarUrl],
       );
       const userId = inserted.rows[0].id as string;

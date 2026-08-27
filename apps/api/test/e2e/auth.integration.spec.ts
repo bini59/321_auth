@@ -64,7 +64,7 @@ class FakeUsers {
   async findById(id: string) { return id === USER_ID && !this.deleted ? { id, email: 'e2e@example.test', name: this.name, avatar_url: null, profile_completed_at: '2026-08-07T00:00:00.000Z' } : null; }
   async upsertFromProvider() { return USER_ID; }
   async requestDeletion() { this.deleted = true; }
-  async updateProfile(userId: string, name: string) { this.name = name; return this.findById(userId); }
+  async updateProfile(userId: string, name?: string) { if (name != null) this.name = name; return this.findById(userId); }
   async identities() { return [{ provider: 'google', linkedAt: '2026-08-07T00:00:00.000Z' }]; }
 }
 
