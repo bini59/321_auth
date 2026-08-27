@@ -123,9 +123,10 @@ export class AuthController {
       this.accountMemberships(account.userId),
       this.accountSessions(account.userId, req.cookies?.sid),
     ]);
+    const authError = req.query.auth_error ? String(req.query.auth_error) : null;
     return res
       .type('html')
-      .send(renderAccountPage({ ...account, memberships, sessions }, csrf, cspNonce(res)));
+      .send(renderAccountPage({ ...account, memberships, sessions, authError }, csrf, cspNonce(res)));
   }
 
   @Get('client/login/:provider')

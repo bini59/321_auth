@@ -87,6 +87,23 @@ describe('renderAccountPage', () => {
     expect(renderAccountPage(BASE, 'csrf-token', 'n0nce')).toContain('<script nonce="n0nce">');
     expect(page()).toContain('<script>');
   });
+
+  it('explains that the provider already belongs to another account', () => {
+    const html = page({ authError: 'identity_already_linked' });
+    expect(html).toContain('이미 다른 계정에 등록되어 있습니다');
+    expect(html).toContain('role="alert"');
+  });
+
+  it('stays quiet when there is no auth error', () => {
+    const html = page();
+    expect(html).not.toContain('role="alert"');
+  });
+
+  it('ignores an auth_error value that is not a known code', () => {
+    const html = page({ authError: '<img src=x onerror=alert(1)>' });
+    expect(html).not.toContain('onerror=alert(1)');
+    expect(html).not.toContain('role="alert"');
+  });
 });
 
 describe('renderAccountLoginPage', () => {

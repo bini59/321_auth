@@ -43,9 +43,17 @@ export interface AccountPageData {
   profileCompleted: boolean;
   memberships: AccountMembershipView[];
   sessions: AccountSessionView[];
+  authError?: string | null;
 }
 
 const LINKABLE_PROVIDERS = ['google', 'kakao'] as const;
+
+/** auth_error 는 쿼리스트링에서 오므로 화이트리스트로만 문구를 고른다. */
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  identity_already_linked:
+    '이 로그인 수단은 이미 다른 계정에 등록되어 있습니다. 두 계정을 하나로 합치려면 문의해주세요.',
+  denied: '로그인 수단 연동이 취소되었습니다.',
+};
 
 const PROVIDER_HINTS: Record<string, string> = {
   google: 'Google 계정으로 로그인',
@@ -114,7 +122,11 @@ function identitiesCard(account: AccountPageData): string {
       : `<a class="btn btn--sm" href="/account/link/${provider}">연동하기</a>`;
     return `<div class="row">${providerMark(provider)}<div class="row-main"><span class="row-title">${escapeHtml(providerName(provider))}</span><span class="row-sub">${escapeHtml(PROVIDER_HINTS[provider])}</span></div><div class="row-aside">${action}</div></div>`;
   }).join('');
-  return `<section class="card"><div class="card-head">로그인 수단</div><div class="rows">${rows}</div></section>`;
+  const message = account.authError ? AUTH_ERROR_MESSAGES[account.authError] : undefined;
+  const notice = message
+    ? `<div class="card-body"><p class="error" role="alert">${escapeHtml(message)}</p></div>`
+    : '';
+  return `<section class="card"><div class="card-head">로그인 수단</div>${notice}<div class="rows">${rows}</div></section>`;
 }
 
 function membershipsCard(memberships: AccountMembershipView[]): string {
