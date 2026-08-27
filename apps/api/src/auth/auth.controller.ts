@@ -32,6 +32,7 @@ import type { ClientRow } from '../clients/clients.service';
 import { pool } from '../db/db';
 import { InvalidProfileImageError, ProfileService } from '../profile/profile.service';
 import { renderAccountLoginPage, renderAccountPage } from './account-page';
+import { providerButton, providerButtonCss } from './provider-brand';
 
 const SECURE = ENV.authOrigin.startsWith('https://');
 
@@ -461,13 +462,11 @@ function renderLoginPage(
     : '';
   const rt = encodeURIComponent(returnTo);
   const providerButtons = (Object.keys(PROVIDERS) as ProviderName[])
-    .map((p) => {
-      const cfg = PROVIDERS[p];
-      const disabled = !cfg.clientId;
-      return `<a class="login ${disabled ? 'disabled' : ''}" href="/login/${p}?client_id=${escapeHtml(
-        clientId,
-      )}&return_to=${rt}"><span class="dot"></span>${escapeHtml(cfg.labels.ko)}로 시작</a>`;
-    })
+    .map((p) =>
+      providerButton(p, `/login/${p}?client_id=${escapeHtml(clientId)}&return_to=${rt}`, {
+        configured: Boolean(PROVIDERS[p].clientId),
+      }),
+    )
     .join('');
   const unconfigured = !PROVIDERS.google.clientId || !PROVIDERS.kakao.clientId;
 
@@ -476,15 +475,12 @@ function renderLoginPage(
 <title>로그인 · ${escapeHtml(client.name)}</title>
 <style>
   body{font-family:system-ui,sans-serif;background:#f4f5f7;display:grid;place-items:center;min-height:100vh;margin:0}
-  .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:32px;width:340px;box-shadow:0 10px 30px rgba(0,0,0,.06)}
+  .card{background:#fff;border:1px solid #e5e7eb;border-top:3px solid ${theme};border-radius:14px;padding:32px;width:340px;box-shadow:0 10px 30px rgba(0,0,0,.06)}
   .logo{width:48px;height:48px;border-radius:10px;object-fit:cover;display:block;margin:0 auto 8px}
   h1{font-size:18px;text-align:center;color:#111827;margin:8px 0 24px}
-  a.login{display:block;text-align:center;padding:12px;border:1px solid #d1d5db;border-radius:8px;color:#111827;text-decoration:none;margin-bottom:10px;transition:background .15s}
-  a.login:hover{background:#f3f4f6}a.login[disabled]{opacity:.45;pointer-events:none;cursor:not-allowed}
   .error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:10px;font-size:13px;margin-bottom:14px;text-align:center}
   .hint{color:#6b7280;font-size:12px;text-align:center;margin-top:16px}
-  .provider{display:flex;gap:8px;align-items:center;justify-content:center;font-weight:600}
-  .dot{width:10px;height:10px;border-radius:50%;background:${theme};display:inline-block}
+  ${providerButtonCss()}
 </style></head><body>
 <div class="card">${logo}<h1>${escapeHtml(client.name)}</h1>${err}
 <div id="btns">${providerButtons}</div>
