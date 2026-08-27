@@ -67,6 +67,7 @@ const NOTICE_MESSAGES: Record<string, { tone: 'ok' | 'error'; text: string }> = 
     text: '사진을 저장할 수 없습니다. PNG·JPEG·WebP 5MB 이하인지 확인해주세요.',
   },
   avatar_failed: { tone: 'error', text: '사진을 저장할 수 없습니다. 잠시 후 다시 시도해주세요.' },
+  profile_failed: { tone: 'error', text: '변경사항을 저장할 수 없습니다.' },
 };
 
 function lookupMessage<T>(table: Record<string, T>, code: string | null | undefined): T | undefined {
