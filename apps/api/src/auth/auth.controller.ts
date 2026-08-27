@@ -208,7 +208,7 @@ export class AuthController {
       throw new BadRequestException('invalid profile image');
     }
     try {
-      const user = await this.users.updateProfile(account.userId, account.name || '사용자', avatarUrl);
+      const user = await this.users.updateProfile(account.userId, undefined, avatarUrl);
       return { avatarUrl: user.avatar_url };
     } catch (error) {
       await this.profile.deleteAvatar(account.userId).catch(() => {});
