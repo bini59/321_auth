@@ -1,10 +1,37 @@
 // apps/admin/src/sections/users.tsx
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import type { AdminMembership, AdminUser, AdminUserDetail } from '../api';
 import { CloseIcon, SearchIcon } from '../icons';
 
 type SortKey = 'name' | 'memberships' | 'created';
 const initials = (name: string | null) => (name || '?').slice(0, 2);
+
+function Avatar({ name, url, className, style }: {
+  name: string | null;
+  url: string | null;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const [failed, setFailed] = useState(false);
+  const src = failed ? null : safeAvatarUrl(url);
+  return (
+    <div className={className ?? 'avatar'} style={style}>
+      {src
+        ? <img src={src} alt="" onError={() => setFailed(true)} />
+        : initials(name)}
+    </div>
+  );
+}
+
+function safeAvatarUrl(value: string | null) {
+  if (!value) return null;
+  try {
+    const url = new URL(value, window.location.origin);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 export function UsersSection({
   users, selected, search, loading, onSearch, onOpen, onCloseDetail, onMembership, onRevoke,
@@ -81,7 +108,7 @@ export function UsersSection({
                   >
                     <td>
                       <div className="cell-main">
-                        <div className="avatar avatar--sm">{initials(user.name)}</div>
+                        <Avatar className="avatar avatar--sm" name={user.name} url={user.avatarUrl} />
                         <div style={{ minWidth: 0 }}>
                           <div className="truncate" style={{ fontWeight: 500 }}>{user.name || '(이름 없음)'}</div>
                           <div className="dim truncate" style={{ fontSize: 11.5 }}>{user.email || '이메일 없음'}</div>
@@ -110,7 +137,7 @@ export function UsersSection({
         {selected && (
           <div className="card user-detail">
             <div className="detail-head">
-              <div className="avatar" style={{ width: 34, height: 34, fontSize: 12 }}>{initials(selected.name)}</div>
+              <Avatar name={selected.name} url={selected.avatarUrl} style={{ width: 34, height: 34, fontSize: 12 }} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div className="detail-name">{selected.name || '(이름 없음)'}</div>
                 <div className="muted" style={{ fontSize: 12 }}>{selected.email || '이메일 없음'}</div>
