@@ -124,9 +124,10 @@ export class AuthController {
       this.accountSessions(account.userId, req.cookies?.sid),
     ]);
     const authError = req.query.auth_error ? String(req.query.auth_error) : null;
+    const notice = req.query.notice ? String(req.query.notice) : null;
     return res
       .type('html')
-      .send(renderAccountPage({ ...account, memberships, sessions, authError }, csrf, cspNonce(res)));
+      .send(renderAccountPage({ ...account, memberships, sessions, authError, notice }, csrf, cspNonce(res)));
   }
 
   @Get('client/login/:provider')
@@ -178,12 +179,16 @@ export class AuthController {
     return { ...user, identities: await this.users.identities(user.id) };
   }
 
-  // 포털은 서버 렌더링 HTML 폼이라 PATCH를 보낼 수 없다. 저장 후 포털로 되돌린다.
   @Post('account/profile')
   @UseGuards(CsrfGuard)
   async submitAccountProfile(@Req() req: Request, @Body() body: { name?: unknown }, @Res() res: Response) {
-    await this.saveAccountName(req, body);
-    return res.redirect(302, '/client');
+    try {
+      await this.saveAccountName(req, body);
+    } catch (error) {
+      if (error instanceof BadRequestException) return res.redirect(302, '/client?notice=name_invalid');
+      throw error;
+    }
+    return res.redirect(302, '/client?notice=profile_saved');
   }
 
   @Post('account/avatar')
