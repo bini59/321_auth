@@ -48,9 +48,12 @@ class FakeSessions {
 
 class FakeUsers {
   deleted = false;
-  async findById(id: string) { return id === USER_ID && !this.deleted ? { id, email: 'e2e@example.test', name: 'E2E User', avatar_url: null, profile_completed_at: '2026-08-07T00:00:00.000Z' } : null; }
+  name = 'E2E User';
+  async findById(id: string) { return id === USER_ID && !this.deleted ? { id, email: 'e2e@example.test', name: this.name, avatar_url: null, profile_completed_at: '2026-08-07T00:00:00.000Z' } : null; }
   async upsertFromProvider() { return USER_ID; }
   async requestDeletion() { this.deleted = true; }
+  async updateProfile(userId: string, name: string) { this.name = name; return this.findById(userId); }
+  async identities() { return [{ provider: 'google', linkedAt: '2026-08-07T00:00:00.000Z' }]; }
 }
 
 class FakeProfile { async saveAvatar() { return 'https://static.example/profile.png'; } async deleteAvatar() {} }
@@ -199,6 +202,26 @@ test('a service cannot create a membership for another service', async ({ page }
     data: { serviceId: 'beta', userId: USER_ID },
   });
   expect(response.status()).toBe(403);
+});
+
+test('the portal name form saves via POST and returns to the portal', async ({ page }) => {
+  await login(page, 'google');
+  await page.goto(`${origin}/client`);
+  await page.locator('input[name="name"]').fill('새 이름');
+  await page.locator('form[action^="/account/profile"] button[type="submit"]').click();
+  await expect(page).toHaveURL(`${origin}/client`);
+  await expect(page.locator('input[name="name"]')).toHaveValue('새 이름');
+});
+
+test('the portal name form rejects a too-short name', async ({ page }) => {
+  await login(page, 'google');
+  await page.goto(`${origin}/client`);
+  const csrf = (await page.context().cookies(origin)).find((cookie) => cookie.name === 'csrf')!.value;
+  const response = await page.request.post(`${origin}/account/profile?csrf=${encodeURIComponent(csrf)}`, {
+    form: { name: 'a' },
+    maxRedirects: 0,
+  });
+  expect(response.status()).toBe(400);
 });
 
 test('logout, all-session logout, suspended membership, and deletion are enforced', async ({ page }) => {

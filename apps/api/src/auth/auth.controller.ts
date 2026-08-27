@@ -144,15 +144,18 @@ export class AuthController {
   }
 
   @Patch('account/profile')
-  @Post('account/profile')
   @UseGuards(CsrfGuard)
   async updateAccountProfile(@Req() req: Request, @Body() body: { name?: unknown }) {
-    const account = await this.account(req);
-    if (!account) throw new UnauthorizedException();
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
-    if (name.length < 2 || name.length > 40) throw new BadRequestException('name must be 2-40 characters');
-    const user = await this.users.updateProfile(account.userId, name);
-    return { ...user, identities: await this.users.identities(account.userId) };
+    const user = await this.saveAccountName(req, body);
+    return { ...user, identities: await this.users.identities(user.id) };
+  }
+
+  // 포털은 서버 렌더링 HTML 폼이라 PATCH를 보낼 수 없다. 저장 후 포털로 되돌린다.
+  @Post('account/profile')
+  @UseGuards(CsrfGuard)
+  async submitAccountProfile(@Req() req: Request, @Body() body: { name?: unknown }, @Res() res: Response) {
+    await this.saveAccountName(req, body);
+    return res.redirect(302, '/client');
   }
 
   @Post('account/avatar')
@@ -413,6 +416,14 @@ export class AuthController {
     await this.sessions.revokeAll(session.userId);
     res.clearCookie('sid', sidCookie());
     return res.status(204).send();
+  }
+
+  private async saveAccountName(req: Request, body: { name?: unknown }) {
+    const account = await this.account(req);
+    if (!account) throw new UnauthorizedException();
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (name.length < 2 || name.length > 40) throw new BadRequestException('name must be 2-40 characters');
+    return this.users.updateProfile(account.userId, name);
   }
 
   private async account(req: Request) {
