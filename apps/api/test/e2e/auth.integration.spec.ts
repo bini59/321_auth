@@ -232,8 +232,9 @@ test('the portal name form saves via POST and returns to the portal', async ({ p
   await page.goto(`${origin}/client`);
   await page.locator('input[name="name"]').fill('새 이름');
   await page.locator('form[action^="/account/profile"] button[type="submit"]').click();
-  await expect(page).toHaveURL(`${origin}/client`);
+  await expect(page).toHaveURL(`${origin}/client?notice=profile_saved`);
   await expect(page.locator('input[name="name"]')).toHaveValue('새 이름');
+  await expect(page.getByRole('alert')).toHaveText('변경사항이 저장되었습니다.');
 });
 
 test('the portal renders the linked apps and active sessions cards for the signed-in user', async ({ page }) => {
@@ -296,7 +297,7 @@ test('logout without client_id redirects to the portal instead of unknown client
   expect((await page.request.get(redirect.headers().location!)).status()).toBe(401);
 });
 
-test('the portal name form rejects a too-short name', async ({ page }) => {
+test('the portal name form rejects a too-short name and says so in the portal', async ({ page }) => {
   await login(page, 'google');
   await page.goto(`${origin}/client`);
   const csrf = (await page.context().cookies(origin)).find((cookie) => cookie.name === 'csrf')!.value;
@@ -304,7 +305,11 @@ test('the portal name form rejects a too-short name', async ({ page }) => {
     form: { name: 'a' },
     maxRedirects: 0,
   });
-  expect(response.status()).toBe(400);
+  expect(response.status()).toBe(302);
+  expect(response.headers().location).toBe('/client?notice=name_invalid');
+
+  await page.goto(`${origin}/client?notice=name_invalid`);
+  await expect(page.getByRole('alert')).toHaveText('이름은 2–40자로 입력해주세요.');
 });
 
 test('logout, all-session logout, suspended membership, and deletion are enforced', async ({ page }) => {

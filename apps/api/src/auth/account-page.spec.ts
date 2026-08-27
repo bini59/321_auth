@@ -104,6 +104,63 @@ describe('renderAccountPage', () => {
     expect(html).not.toContain('onerror=alert(1)');
     expect(html).not.toContain('role="alert"');
   });
+
+  it('confirms a saved profile in the profile card', () => {
+    const html = page({ notice: 'profile_saved' });
+    expect(html).toContain('변경사항이 저장되었습니다.');
+    expect(html).toContain('class="alert alert--ok" role="alert"');
+  });
+
+  it('reports a rejected name so the user can correct it', () => {
+    const html = page({ notice: 'name_invalid' });
+    expect(html).toContain('이름은 2–40자로 입력해주세요.');
+    expect(html).toContain('class="alert alert--error" role="alert"');
+  });
+
+  it('reports all avatar outcomes in the same place as the name outcomes', () => {
+    expect(page({ notice: 'avatar_saved' })).toContain('프로필 사진이 저장되었습니다.');
+    expect(page({ notice: 'avatar_invalid' })).toContain('PNG·JPEG·WebP 5MB 이하');
+    expect(page({ notice: 'avatar_failed' })).toContain('사진을 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
+  });
+
+  it('ignores inherited whitelist properties', () => {
+    const html = page({ notice: '__proto__' });
+    expect(html).not.toContain('class="alert');
+  });
+
+  it('uses the same safe lookup for auth errors', () => {
+    const html = page({ authError: '__proto__' });
+    expect(html).not.toContain('class="alert');
+  });
+
+  it('reports a save that failed for reasons other than validation', () => {
+    const html = page({ notice: 'profile_failed' });
+    expect(html).toContain('변경사항을 저장할 수 없습니다.');
+    expect(html).toContain('alert--error');
+  });
+
+  it('stays quiet when there is no notice', () => {
+    expect(page()).not.toContain('class="alert');
+  });
+
+  it('ignores a notice value that is not a known code', () => {
+    const html = page({ notice: '<img src=x onerror=alert(1)>' });
+    expect(html).not.toContain('onerror=alert(1)');
+    expect(html).not.toContain('class="alert');
+  });
+
+  it('hands avatar feedback to the portal instead of a browser alert', () => {
+    const html = page();
+    expect(html).toContain("/client?notice='+encodeURIComponent(notice)");
+    expect(html).not.toContain('alert(');
+  });
+
+  it('surfaces a rejected name on the onboarding screen too', () => {
+    const html = page({ profileCompleted: false, name: null, notice: 'name_invalid' });
+    expect(html).toContain('이름을 등록해주세요');
+    expect(html).toContain('이름은 2–40자로 입력해주세요.');
+    expect(html).toContain('role="alert"');
+  });
 });
 
 describe('renderAccountLoginPage', () => {

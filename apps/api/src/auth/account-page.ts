@@ -46,6 +46,7 @@ export interface AccountPageData {
   memberships: AccountMembershipView[];
   sessions: AccountSessionView[];
   authError?: string | null;
+  notice?: string | null;
 }
 
 const LINKABLE_PROVIDERS = ['google', 'kakao'] as const;
@@ -56,6 +57,27 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
     '이 로그인 수단은 이미 다른 계정에 등록되어 있습니다. 두 계정을 하나로 합치려면 문의해주세요.',
   denied: '로그인 수단 연동이 취소되었습니다.',
 };
+
+const NOTICE_MESSAGES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
+  profile_saved: { tone: 'ok', text: '변경사항이 저장되었습니다.' },
+  avatar_saved: { tone: 'ok', text: '프로필 사진이 저장되었습니다.' },
+  name_invalid: { tone: 'error', text: '이름은 2–40자로 입력해주세요.' },
+  avatar_invalid: {
+    tone: 'error',
+    text: '사진을 저장할 수 없습니다. PNG·JPEG·WebP 5MB 이하인지 확인해주세요.',
+  },
+  avatar_failed: { tone: 'error', text: '사진을 저장할 수 없습니다. 잠시 후 다시 시도해주세요.' },
+};
+
+function lookupMessage<T>(table: Record<string, T>, code: string | null | undefined): T | undefined {
+  return code && Object.hasOwn(table, code) ? table[code] : undefined;
+}
+
+function noticeBanner(notice: string | null | undefined): string {
+  const entry = lookupMessage(NOTICE_MESSAGES, notice);
+  if (!entry) return '';
+  return `<p class="alert alert--${entry.tone}" role="alert">${escapeHtml(entry.text)}</p>`;
+}
 
 const PROVIDER_HINTS: Record<string, string> = {
   google: 'Google 계정으로 로그인',
@@ -90,7 +112,8 @@ const AVATAR_DROP_CSS = `.drop{position:relative;display:grid;place-items:center
 @media (max-width:520px){.row-aside{font-size:11.5px}}`;
 
 const AVATAR_SCRIPT = `(function(){var form=document.querySelector('[data-avatar-form]');if(!form)return;var zone=form.querySelector('[data-drop]');var input=form.querySelector('input[type=file]');
-function send(file){if(!file)return;var data=new FormData();data.append('file',file);fetch(form.action,{method:'POST',body:data,credentials:'same-origin'}).then(function(r){if(!r.ok)throw new Error('upload failed');location.reload();}).catch(function(){alert('사진을 저장할 수 없습니다. PNG·JPEG·WebP 5MB 이하인지 확인해주세요.');});}
+function done(notice){location.replace('/client?notice='+encodeURIComponent(notice));}
+function send(file){if(!file)return;var data=new FormData();data.append('file',file);fetch(form.action,{method:'POST',body:data,credentials:'same-origin'}).then(function(r){if(r.ok){done('avatar_saved');return;}done(r.status>=400&&r.status<500?'avatar_invalid':'avatar_failed');}).catch(function(){done('avatar_failed');});}
 form.addEventListener('submit',function(e){e.preventDefault();send(input&&input.files&&input.files[0]);});
 if(input)input.addEventListener('change',function(){send(input.files&&input.files[0]);});
 if(!zone)return;
@@ -100,8 +123,9 @@ zone.addEventListener('drop',function(e){e.preventDefault();zone.classList.remov
 
 function profileCard(account: AccountPageData, csrfQuery: string): string {
   const avatarUrl = safeAvatarUrl(account.avatarUrl);
+  const notice = noticeBanner(account.notice);
   return `<section class="card"><div class="card-head">프로필</div><div class="card-body">
-<form class="profile" method="post" action="/account/avatar${csrfQuery}" enctype="multipart/form-data" data-avatar-form>
+${notice ? `${notice}\n` : ''}<form class="profile" method="post" action="/account/avatar${csrfQuery}" enctype="multipart/form-data" data-avatar-form>
 <label class="drop" data-drop title="프로필 사진 변경">${avatarEl(avatarUrl, account.name, 72)}<span class="drop-over">${UPLOAD_ICON}</span><input name="file" type="file" accept="image/png,image/jpeg,image/webp" hidden required></label>
 <div><div class="profile-actions"><label class="btn btn--sm">사진 선택<input name="file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button class="btn btn--sm btn--primary" type="submit">저장</button></div>
 <p class="hint" style="margin-top:8px">여기로 이미지를 끌어다 놓아도 됩니다. PNG로 저장, 최대 5MB.</p></div>
@@ -124,9 +148,9 @@ function identitiesCard(account: AccountPageData): string {
       : `<a class="btn btn--sm" href="/account/link/${provider}">연동하기</a>`;
     return `<div class="row">${providerMark(provider)}<div class="row-main"><span class="row-title">${escapeHtml(providerName(provider))}</span><span class="row-sub">${escapeHtml(PROVIDER_HINTS[provider])}</span></div><div class="row-aside">${action}</div></div>`;
   }).join('');
-  const message = account.authError ? AUTH_ERROR_MESSAGES[account.authError] : undefined;
+  const message = lookupMessage(AUTH_ERROR_MESSAGES, account.authError);
   const notice = message
-    ? `<div class="card-body"><p class="error" role="alert">${escapeHtml(message)}</p></div>`
+    ? `<div class="card-body"><p class="alert alert--error" role="alert">${escapeHtml(message)}</p></div>`
     : '';
   return `<section class="card"><div class="card-head">로그인 수단</div>${notice}<div class="rows">${rows}</div></section>`;
 }
@@ -194,7 +218,7 @@ export function renderOnboardingPage(account: AccountPageData, csrf: string, non
 <div class="solo-card" style="padding:26px">
 <h1>이름을 등록해주세요</h1>
 <p style="margin-bottom:22px">서비스에 표시될 이름입니다. 나중에 계정 화면에서 바꿀 수 있습니다.</p>
-${summary}
+${summary}${noticeBanner(account.notice)}
 <form method="post" action="/account/profile${csrfQuery}">
 <div class="field"><label class="label" for="onboarding-name">이름</label>
 <input class="input" id="onboarding-name" name="name" placeholder="2–40자" required minlength="2" maxlength="40" autocomplete="name" autofocus style="height:34px"></div>
