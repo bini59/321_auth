@@ -123,4 +123,22 @@ describe('renderAccountLoginPage', () => {
     expect(html).toContain('role="radio"');
     expect(html).toContain('aria-checked');
   });
+
+  it('uses the split shell instead of a floating card', () => {
+    const html = renderAccountLoginPage();
+    expect(html).toContain('class="lshell"');
+    expect(html).toContain('class="lpanel"');
+    expect(html).toContain('class="lmain"');
+    expect(html).not.toContain('class="solo-card"');
+    expect(html).not.toContain('class="centered"');
+  });
+
+  it('labels the panel with the account identity and a healthy status', () => {
+    const html = renderAccountLoginPage();
+    expect(html).toContain('bini59.dev 계정');
+    expect(html).toContain('auth.bini59.dev');
+    expect(html).toContain('계정 설정 · 로그인 수단 · 활성 세션');
+    expect(html).toContain('dot dot--ok');
+    expect(html).toContain('정상');
+  });
 });

@@ -14,6 +14,8 @@ import {
   avatar as avatarEl,
   escapeHtml,
   layout,
+  loginShell,
+  loginShellCss,
   themeToggle,
   topbar,
 } from './portal-ui';
@@ -213,23 +215,21 @@ ${summary}
 }
 
 export function renderAccountLoginPage(nonce = ''): string {
-  const buttons = providerButton('google', '/client/login/google') + providerButton('kakao', '/client/login/kakao');
-  const body = `<main class="centered"><div class="solo" style="max-width:380px">
-<div class="solo-card">
-<h1>bini59.dev 계정</h1>
-<p style="margin-bottom:22px">계정 설정을 보려면 로그인하세요.</p>
-<div style="display:grid;gap:10px">${buttons}</div>
-<div class="solo-foot"><span class="dot dot--ok" aria-hidden="true"></span><span class="mono">auth.bini59.dev</span></div>
-</div>
-<div style="display:flex;justify-content:center;margin-top:16px">${themeToggle()}</div>
-</div></main>`;
+  const body = loginShell({
+    mark: `<span class="lmark" style="background:var(--fg);color:var(--bg)" aria-hidden="true">A</span>`,
+    name: 'bini59.dev 계정',
+    host: 'auth.bini59.dev',
+    footer: `<span>계정 설정 · 로그인 수단 · 활성 세션</span>` +
+      `<span class="lrow"><span class="dot dot--ok" aria-hidden="true"></span><span class="mono">정상</span></span>`,
+    notice: '계정 설정을 보려면 로그인하세요.',
+    buttons: providerButton('google', '/client/login/google') + providerButton('kakao', '/client/login/kakao'),
+  });
 
   return layout({
     title: '계정 · bini59.dev',
     nonce,
     body,
-    // providerButton 은 자체 margin-bottom 을 갖는다. grid gap 과 겹치지 않게 여기서만 0으로 둔다.
-    extraCss: `${providerButtonCss()}.oauth{margin:0}`,
+    extraCss: `${providerButtonCss()}${loginShellCss()}`,
     script: THEME_TOGGLE_SCRIPT,
   });
 }
