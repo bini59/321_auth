@@ -4,14 +4,20 @@ import { renderLoginPage } from './auth.controller';
 const CLIENT = { name: 'Archive', logo_url: null, theme_color: '#3b82f6' };
 
 describe('renderLoginPage', () => {
-  it('applies the client theme_color to the card top border only', () => {
+  it('applies the client theme_color to the panel top border only', () => {
     const html = renderLoginPage(CLIENT, 'archive', 'https://archive.bini59.dev/home');
-    expect(html).toContain('border-top:3px solid #3b82f6');
+    expect(html).toContain('border-top:2px solid #3b82f6');
+  });
+
+  it('uses the client colour nowhere but that one border', () => {
+    // 토큰 값과 겹치지 않는 색이라 등장 횟수가 곧 client 색 사용 횟수다.
+    const html = renderLoginPage({ ...CLIENT, theme_color: '#ff00aa' }, 'archive', 'https://archive.bini59.dev/');
+    expect(html.match(/#ff00aa/g)).toHaveLength(1);
   });
 
   it('falls back to the accent token when theme_color is missing', () => {
     const html = renderLoginPage({ ...CLIENT, theme_color: null }, 'archive', 'https://archive.bini59.dev/');
-    expect(html).toContain('border-top:3px solid var(--accent)');
+    expect(html).toContain('border-top:2px solid var(--accent)');
   });
 
   it('refuses a theme_color that is not a plain hex value', () => {
@@ -21,7 +27,7 @@ describe('renderLoginPage', () => {
       'https://archive.bini59.dev/',
     );
     expect(html).not.toContain('javascript:alert(1)');
-    expect(html).toContain('border-top:3px solid var(--accent)');
+    expect(html).toContain('border-top:2px solid var(--accent)');
   });
 
   it('shows the return host and the first-letter mark when there is no logo', () => {
@@ -37,7 +43,7 @@ describe('renderLoginPage', () => {
       'https://archive.bini59.dev/',
     );
     expect(html).toContain('https://static.example/logo.png');
-    expect(html).toContain('width:44px;height:44px');
+    expect(html).toContain('<span class="lmark" aria-hidden="true"><img src="https://static.example/logo.png"');
   });
 
   it('keeps the branded provider buttons and carries client_id plus return_to', () => {
@@ -59,6 +65,26 @@ describe('renderLoginPage', () => {
     expect(html).not.toContain('<script>alert(1)</script>');
     expect(html).not.toContain('<img onerror=alert(1)>');
     expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('uses the split shell instead of a floating card', () => {
+    const html = renderLoginPage(CLIENT, 'archive', 'https://archive.bini59.dev/home');
+    expect(html).toContain('class="lshell"');
+    expect(html).toContain('class="lmain"');
+    expect(html).not.toContain('class="solo-card"');
+    expect(html).not.toContain('class="centered"');
+  });
+
+  it('shows the return_to target in the panel footer', () => {
+    const html = renderLoginPage(CLIENT, 'archive', 'https://archive.bini59.dev/home');
+    expect(html).toContain('→ https://archive.bini59.dev/home');
+    expect(html).toContain('bini59.dev 계정으로 계속합니다.');
+  });
+
+  it('puts the error above the provider buttons', () => {
+    const html = renderLoginPage(CLIENT, 'archive', 'https://archive.bini59.dev/', 'access_denied');
+    expect(html).toContain('access_denied');
+    expect(html.indexOf('access_denied')).toBeLessThan(html.indexOf('class="lbuttons"'));
   });
 
   it('drops the legacy purple palette in favour of tokens', () => {

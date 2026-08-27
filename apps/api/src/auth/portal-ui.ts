@@ -96,6 +96,58 @@ const COMPONENT_CSS = `.topbar{position:sticky;top:0;z-index:20;display:flex;ali
 .solo-foot{display:flex;align-items:center;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);color:var(--fg-3);font-size:12px}
 .page-foot{display:flex;align-items:center;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);color:var(--fg-3);font-size:12px}`;
 
+/** 로그인 화면 전용 셸. 상단바 아래 남은 높이를 좌측 340px 패널 + 우측 중앙 블록으로 채운다. */
+const LOGIN_SHELL_CSS = `body{min-height:100vh;display:flex;flex-direction:column}
+.lshell{flex:1;display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr)}
+.lpanel{background:var(--panel);border-right:1px solid var(--border);padding:34px 30px;display:flex;flex-direction:column;gap:14px}
+.lmark{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:700;flex:none;overflow:hidden}
+.lmark img{width:34px;height:34px;border-radius:8px;object-fit:cover;display:block}
+.lid{display:grid;gap:4px;min-width:0}
+.lname{font-size:18px;font-weight:600;letter-spacing:-.02em}
+.lhost{font-size:12.5px;color:var(--fg-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lfoot{border-top:1px solid var(--border);padding-top:14px;display:grid;gap:7px;font-size:12px;color:var(--fg-3)}
+.lrow{display:flex;align-items:center;gap:7px;min-width:0}
+.ltrunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lmain{display:grid;place-items:center;padding:34px 30px}
+.lblock{width:100%;max-width:296px}
+.lnotice{margin:0 0 16px;font-size:13px;color:var(--fg-2)}
+.lbuttons{display:grid;gap:10px}
+.lbuttons .oauth{margin:0}
+@media (max-width:720px){.lshell{grid-template-columns:minmax(0,1fr)}.lpanel{border-right:0;border-bottom:1px solid var(--border)}}`;
+
+export function loginShellCss(): string {
+  return LOGIN_SHELL_CSS;
+}
+
+/**
+ * 두 로그인 화면(`/client` 비로그인, `/login` 앱별)의 공통 레이아웃.
+ * mark/footer/block 은 이미 이스케이프된 HTML 을 받는다.
+ */
+export function loginShell(options: {
+  mark: string;
+  name: string;
+  host?: string;
+  footer: string;
+  notice: string;
+  buttons: string;
+  panelStyle?: string;
+  block?: string;
+}): string {
+  const panelStyle = options.panelStyle ? ` style="${options.panelStyle}"` : '';
+  const host = options.host ? `<span class="lhost mono">${escapeHtml(options.host)}</span>` : '';
+  return `${topbar()}<main class="lshell">
+<div class="lpanel"${panelStyle}>${options.mark}
+<div class="lid"><span class="lname">${escapeHtml(options.name)}</span>${host}</div>
+<span style="flex:1"></span>
+<div class="lfoot">${options.footer}</div>
+</div>
+<div class="lmain"><div class="lblock">
+<p class="lnotice">${escapeHtml(options.notice)}</p>${options.block ?? ''}
+<div class="lbuttons">${options.buttons}</div>
+</div></div>
+</main>`;
+}
+
 export function portalCss(): string {
   return `${TOKENS_CSS}\n${BASE_CSS}\n${COMPONENT_CSS}`;
 }
