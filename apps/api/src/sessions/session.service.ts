@@ -49,6 +49,31 @@ export class SessionService {
       : null;
   }
 
+  // 계정 포털 "활성 세션" 카드. 만료된 sid 는 집합에 남아 있을 수 있어 걸러낸다.
+  async listForUser(userId: string, currentSid?: string) {
+    const sids = await this.client().smembers(`user_sess:${userId}`);
+    if (sids.length === 0) return [];
+
+    const results = await Promise.all(
+      sids.map(async (sid) => {
+        const h = await this.client().hgetall(`sess:${sid}`);
+        if (!h?.userId) return null;
+        return {
+          id: sid,
+          current: sid === currentSid,
+          createdAt: Number(h.createdAt),
+          lastSeenAt: Number(h.lastSeenAt),
+          ua: h.ua ?? '',
+          ip: h.ip ?? '',
+        };
+      }),
+    );
+
+    return results
+      .filter((session): session is NonNullable<typeof session> => session !== null)
+      .sort((a, b) => (a.current ? -1 : b.current ? 1 : b.lastSeenAt - a.lastSeenAt));
+  }
+
   async touch(sid: string, userId: string) {
     const ttl = TTL();
     await this.client()

@@ -33,6 +33,7 @@ import { pool } from '../db/db';
 import { InvalidProfileImageError, ProfileService } from '../profile/profile.service';
 import { renderAccountLoginPage, renderAccountPage } from './account-page';
 import { providerButton, providerButtonCss } from './provider-brand';
+import { THEME_TOGGLE_SCRIPT, cspNonce, escapeHtml, layout, themeToggle } from './portal-ui';
 
 const SECURE = ENV.authOrigin.startsWith('https://');
 
@@ -85,7 +86,13 @@ export class AuthController {
       ...cookieOptions({ httpOnly: false }),
     });
 
-    const html = renderLoginPage(client, client.client_id, returnTo, q.error ? String(q.error) : undefined);
+    const html = renderLoginPage(
+      client,
+      client.client_id,
+      returnTo,
+      q.error ? String(q.error) : undefined,
+      cspNonce(res),
+    );
     res.type('html').send(html);
   }
 
@@ -109,10 +116,16 @@ export class AuthController {
   @Get('client')
   async clientPortal(@Req() req: Request, @Res() res: Response) {
     const account = await this.account(req);
-    if (!account) return res.status(401).type('html').send(renderAccountLoginPage());
+    if (!account) return res.status(401).type('html').send(renderAccountLoginPage(cspNonce(res)));
     const csrf = randomBytes(16).toString('base64url');
     res.cookie('csrf', csrf, cookieOptions({ httpOnly: false }));
-    return res.type('html').send(renderAccountPage(account, csrf));
+    const [memberships, sessions] = await Promise.all([
+      this.accountMemberships(account.userId),
+      this.accountSessions(account.userId, req.cookies?.sid),
+    ]);
+    return res
+      .type('html')
+      .send(renderAccountPage({ ...account, memberships, sessions }, csrf, cspNonce(res)));
   }
 
   @Get('client/login/:provider')
@@ -128,7 +141,21 @@ export class AuthController {
   async accountApi(@Req() req: Request) {
     const account = await this.account(req);
     if (!account) throw new UnauthorizedException();
-    return account;
+    return { ...account, memberships: await this.accountMemberships(account.userId) };
+  }
+
+  @Get('account/memberships')
+  async accountMembershipsApi(@Req() req: Request) {
+    const account = await this.account(req);
+    if (!account) throw new UnauthorizedException();
+    return { memberships: await this.accountMemberships(account.userId) };
+  }
+
+  @Get('account/sessions')
+  async accountSessionsApi(@Req() req: Request) {
+    const account = await this.account(req);
+    if (!account) throw new UnauthorizedException();
+    return { sessions: await this.accountSessions(account.userId, req.cookies?.sid) };
   }
 
   @Get('account/link/:provider')
@@ -436,6 +463,23 @@ export class AuthController {
     return { userId: user.id, email: user.email, name: user.name, avatarUrl: user.avatar_url, profileCompleted: Boolean(user.profile_completed_at), identities: await this.users.identities(user.id) };
   }
 
+  // Redis/DB 가 흔들려도 계정 화면 전체가 죽지 않도록 목록 조회는 빈 배열로 접는다.
+  private async accountMemberships(userId: string) {
+    try {
+      return await this.memberships.listForUser(userId);
+    } catch {
+      return [];
+    }
+  }
+
+  private async accountSessions(userId: string, currentSid?: string) {
+    try {
+      return await this.sessions.listForUser(userId, currentSid);
+    } catch {
+      return [];
+    }
+  }
+
   private setOauthStateCookie(res: Response, url: string) {
     const state = new URL(url).searchParams.get('state');
     if (!state) throw new Error('OAuth state missing from authorization URL');
@@ -451,50 +495,54 @@ function sidCookie() {
   return { path: '/', domain: ENV.cookieDomain || undefined, secure: SECURE, httpOnly: true, sameSite: 'lax' as const };
 }
 
-function escapeHtml(s: unknown): string {
-  return String(s ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
-function renderLoginPage(
+export function renderLoginPage(
   client: { name: string; logo_url: string | null; theme_color: string | null },
   clientId: string,
   returnTo: string,
   error?: string,
+  nonce = '',
 ) {
-  const theme = (client.theme_color || '#4f46e5').replace(/[^#0-9a-f]/gi, '');
-  const logo = client.logo_url ? `<img src="${escapeHtml(client.logo_url)}" class="logo" alt="" />` : '';
-  const err = error
-    ? `<div class="error">로그인할 수 없습니다 (${escapeHtml(error)})</div>`
-    : '';
+  // theme_color 는 운영자 입력이라 인라인 style 에 넣기 전에 hex 만 남긴다.
+  const themeColor = client.theme_color && /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(client.theme_color.trim())
+    ? client.theme_color.trim()
+    : 'var(--accent)';
+  const logo = client.logo_url
+    ? `<img src="${escapeHtml(client.logo_url)}" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;display:block">`
+    : `<span style="width:44px;height:44px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border);display:grid;place-items:center;font-size:17px;font-weight:600">${escapeHtml((client.name || '?').slice(0, 1).toUpperCase())}</span>`;
+  const err = error ? `<div class="error" style="margin-bottom:16px">로그인할 수 없습니다 (${escapeHtml(error)})</div>` : '';
   const rt = encodeURIComponent(returnTo);
   const providerButtons = (Object.keys(PROVIDERS) as ProviderName[])
     .map((p) =>
-      providerButton(p, `/login/${p}?client_id=${escapeHtml(clientId)}&return_to=${rt}`, {
+      providerButton(p, `/login/${p}?client_id=${encodeURIComponent(clientId)}&return_to=${rt}`, {
         configured: Boolean(PROVIDERS[p].clientId),
       }),
     )
     .join('');
   const unconfigured = !PROVIDERS.google.clientId || !PROVIDERS.kakao.clientId;
 
-  return `<!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>로그인 · ${escapeHtml(client.name)}</title>
-<style>
-  body{font-family:system-ui,sans-serif;background:#f4f5f7;display:grid;place-items:center;min-height:100vh;margin:0}
-  .card{background:#fff;border:1px solid #e5e7eb;border-top:3px solid ${theme};border-radius:14px;padding:32px;width:340px;box-shadow:0 10px 30px rgba(0,0,0,.06)}
-  .logo{width:48px;height:48px;border-radius:10px;object-fit:cover;display:block;margin:0 auto 8px}
-  h1{font-size:18px;text-align:center;color:#111827;margin:8px 0 24px}
-  .error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:10px;font-size:13px;margin-bottom:14px;text-align:center}
-  .hint{color:#6b7280;font-size:12px;text-align:center;margin-top:16px}
-  ${providerButtonCss()}
-</style></head><body>
-<div class="card">${logo}<h1>${escapeHtml(client.name)}</h1>${err}
-<div id="btns">${providerButtons}</div>
-${unconfigured ? '<div class="hint">프로바이더 키가 설정되지 않았습니다 (운영자는 .env 확인)</div>' : ''}
-</div></body></html>`;
+  let host = '';
+  try {
+    host = new URL(returnTo).host;
+  } catch {
+    host = '';
+  }
+
+  const body = `<main class="centered"><div class="solo" style="max-width:380px">
+<div class="solo-card" style="border-top:3px solid ${themeColor}">
+<div style="display:flex;align-items:center;gap:11px;margin-bottom:22px">${logo}<div style="min-width:0"><div style="font-size:18px;font-weight:600;letter-spacing:-.02em">${escapeHtml(client.name)}</div>${host ? `<div class="mono" style="font-size:12.5px;color:var(--fg-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(host)}</div>` : ''}</div></div>
+${err}
+<div style="display:grid;gap:10px">${providerButtons}</div>
+${unconfigured ? '<p class="hint" style="margin-top:14px;text-align:center">프로바이더 키가 설정되지 않았습니다 (운영자는 .env 확인)</p>' : ''}
+<p class="note" style="margin-top:18px;text-align:center">계속하면 bini59.dev 계정으로 로그인됩니다.</p>
+</div>
+<div style="display:flex;justify-content:center;margin-top:16px">${themeToggle()}</div>
+</div></main>`;
+
+  return layout({
+    title: `로그인 · ${client.name}`,
+    nonce,
+    body,
+    extraCss: `${providerButtonCss()}.oauth{margin:0}`,
+    script: THEME_TOGGLE_SCRIPT,
+  });
 }

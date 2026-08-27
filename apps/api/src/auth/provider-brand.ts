@@ -18,6 +18,26 @@ const BRANDS: Record<BrandProvider, Brand> = {
   kakao: { label: '카카오 로그인', mark: KAKAO_MARK },
 };
 
+const PROVIDER_NAMES: Record<BrandProvider, string> = { google: 'Google', kakao: '카카오' };
+
+export function providerName(provider: string): string {
+  return PROVIDER_NAMES[provider as BrandProvider] ?? provider;
+}
+
+export function isBrandProvider(provider: string): provider is BrandProvider {
+  return provider === 'google' || provider === 'kakao';
+}
+
+// 버튼 밖(목록 행 등)에서 쓰는 프로바이더 마크. 심볼 자체는 버튼과 동일한 것을 재사용한다.
+export function providerMarkCss(): string {
+  return `.pmark{width:18px;height:18px;border-radius:6px;display:grid;place-items:center;flex:none;overflow:hidden}.pmark .mark{width:18px;height:18px;display:block}.pmark--google{background:#fff;border:1px solid #dadce0}.pmark--kakao{background:#fee500}.pmark--kakao .mark{width:12px;height:12px}`;
+}
+
+export function providerMark(provider: string): string {
+  if (!isBrandProvider(provider)) return `<span class="pmark" aria-hidden="true"></span>`;
+  return `<span class="pmark pmark--${provider}" aria-hidden="true">${BRANDS[provider].mark}</span>`;
+}
+
 export function providerButtonCss(): string {
   return `.oauth{display:flex;align-items:center;justify-content:center;gap:10px;box-sizing:border-box;width:100%;height:40px;padding:0 12px;margin:0 0 10px;text-decoration:none;font-size:14px;line-height:20px;font-weight:500}.oauth .mark{flex:none;width:18px;height:18px}.oauth .label{white-space:nowrap}.oauth-google{background:#fff;border:1px solid #747775;border-radius:4px;color:#1f1f1f;font-family:'Google Sans',Roboto,system-ui,-apple-system,'Segoe UI',sans-serif}.oauth-kakao{background:#fee500;border:0;border-radius:12px;color:rgba(0,0,0,.85);font-family:system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif}.oauth-unconfigured{opacity:.45}`;
 }
