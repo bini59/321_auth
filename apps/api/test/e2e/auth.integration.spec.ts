@@ -23,6 +23,8 @@ const { UsersService } = require('../../dist/users/users.service.js');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { MembershipsService } = require('../../dist/memberships/memberships.service.js');
 const { ProfileService } = require('../../dist/profile/profile.service.js');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { ENV } = require('../../dist/config/env.js');
 
 const USER_ID = '00000000-0000-0000-0000-000000000033';
 const APP_SECRET = 'e2e-alpha-secret';
@@ -148,6 +150,7 @@ test.beforeAll(async () => {
   const port = (app.getHttpServer().address() as AddressInfo).port;
   process.env.E2E_AUTH_PORT = String(port);
   origin = `http://127.0.0.1:${port}`;
+  ENV.authOrigin = origin;
   CLIENTS.alpha.allowed_origins = [origin];
   CLIENTS.alpha.default_redirect = `${origin}/logged-in`;
   CLIENTS.beta.allowed_origins = [origin];
@@ -269,8 +272,28 @@ test('the portal logs out every device from the sessions card', async ({ page })
   await login(page, 'google');
   await page.goto(`${origin}/client`);
   await page.locator('form[action^="/logout/all"] button[type="submit"]').click();
-  await expect(page).toHaveURL(/\/login/);
+  await expect(page).toHaveURL(`${origin}/client`);
+  await expect(page.getByText('계정 설정을 보려면 로그인하세요.')).toBeVisible();
   expect((await page.request.get(`${origin}/me`)).status()).toBe(401);
+});
+
+test('the portal logout button lands on the signed-out portal, not a 400', async ({ page }) => {
+  await login(page, 'google');
+  await page.goto(`${origin}/client`);
+  await page.locator('footer form[action^="/logout"] button[type="submit"]').click();
+  await expect(page).toHaveURL(`${origin}/client`);
+  await expect(page.getByText('계정 설정을 보려면 로그인하세요.')).toBeVisible();
+  expect((await page.request.get(`${origin}/me`)).status()).toBe(401);
+});
+
+test('logout without client_id redirects to the portal instead of unknown client', async ({ page }) => {
+  await login(page, 'google');
+  await page.goto(`${origin}/client`);
+  const csrf = (await page.context().cookies(origin)).find((cookie) => cookie.name === 'csrf')!.value;
+  const redirect = await page.request.post(`${origin}/logout?csrf=${encodeURIComponent(csrf)}`, { maxRedirects: 0 });
+  expect(redirect.status()).toBe(302);
+  expect(redirect.headers().location).toBe(`${origin}/client`);
+  expect((await page.request.get(redirect.headers().location!)).status()).toBe(401);
 });
 
 test('the portal name form rejects a too-short name', async ({ page }) => {

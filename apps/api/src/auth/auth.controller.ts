@@ -416,7 +416,7 @@ export class AuthController {
     const client = await this.clients.find(String(req.query.client_id ?? ''));
     const target = client
       ? this.oidc.validateReturnTo(req.query.return_to ? String(req.query.return_to) : undefined, client)
-      : `${ENV.authOrigin}/login`;
+      : `${ENV.authOrigin}/client`;
     return res.redirect(302, target);
   }
 
@@ -427,7 +427,7 @@ export class AuthController {
     const sess = sid ? await this.sessions.get(sid) : null;
     if (sess) await this.sessions.revokeAll(sess.userId);
     res.clearCookie('sid', sidCookie());
-    return res.redirect(302, `${ENV.authOrigin}/login`);
+    return res.redirect(302, `${ENV.authOrigin}/client`);
   }
 
   @Post('account/delete')
