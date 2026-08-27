@@ -38,10 +38,20 @@ class FakeClients {
 }
 
 class FakeSessions {
-  private readonly sessions = new Map<string, { userId: string }>();
-  async create(userId: string) { const sid = `sid-${this.sessions.size + 1}`; this.sessions.set(sid, { userId }); return sid; }
+  private readonly sessions = new Map<string, { userId: string; ua: string; ip: string; lastSeenAt: number }>();
+  async create(userId: string, meta: { ua?: string; ip?: string } = {}) {
+    const sid = `sid-${this.sessions.size + 1}`;
+    this.sessions.set(sid, { userId, ua: meta.ua ?? '', ip: meta.ip ?? '', lastSeenAt: Date.now() });
+    return sid;
+  }
   async get(sid: string) { return this.sessions.get(sid) ?? null; }
   async touch() {}
+  async listForUser(userId: string, currentSid?: string) {
+    return [...this.sessions]
+      .filter(([, session]) => session.userId === userId)
+      .map(([sid, session]) => ({ id: sid, current: sid === currentSid, createdAt: session.lastSeenAt, lastSeenAt: session.lastSeenAt, ua: session.ua, ip: session.ip }))
+      .sort((a, b) => (a.current ? -1 : b.current ? 1 : b.lastSeenAt - a.lastSeenAt));
+  }
   async revoke(sid: string) { this.sessions.delete(sid); }
   async revokeAll(userId: string) { for (const [sid, session] of this.sessions) if (session.userId === userId) this.sessions.delete(sid); }
 }
@@ -63,6 +73,16 @@ class FakeMemberships {
   async find(userId: string, clientId: string) { return this.memberships.get(`${userId}:${clientId}`) ?? null; }
   async ensure(userId: string, clientId: string) { this.memberships.set(`${userId}:${clientId}`, { role: 'member', status: 'active', joinedAt: '2026-08-07T00:00:00.000Z' }); }
   async touch() {}
+  async listForUser(userId: string) {
+    return [...this.memberships]
+      .filter(([key]) => key.startsWith(`${userId}:`))
+      .map(([key, membership]) => {
+        const clientId = key.slice(userId.length + 1);
+        const client = CLIENTS[clientId as keyof typeof CLIENTS];
+        return { clientId, clientName: client?.name ?? clientId, themeColor: client?.theme_color ?? null, role: membership.role, status: membership.status, lastSeenAt: null };
+      })
+      .filter((membership) => CLIENTS[membership.clientId as keyof typeof CLIENTS]?.is_active !== false);
+  }
   suspend(clientId: string) { this.memberships.set(`${USER_ID}:${clientId}`, { role: 'member', status: 'suspended', joinedAt: '2026-08-07T00:00:00.000Z' }); }
 }
 
@@ -211,6 +231,46 @@ test('the portal name form saves via POST and returns to the portal', async ({ p
   await page.locator('form[action^="/account/profile"] button[type="submit"]').click();
   await expect(page).toHaveURL(`${origin}/client`);
   await expect(page.locator('input[name="name"]')).toHaveValue('새 이름');
+});
+
+test('the portal renders the linked apps and active sessions cards for the signed-in user', async ({ page }) => {
+  await login(page, 'google');
+  await page.request.get(`${origin}/me?client_id=alpha`);
+  await page.goto(`${origin}/client`);
+
+  await expect(page.getByText('연동된 앱')).toBeVisible();
+  await expect(page.getByText('Alpha', { exact: true })).toBeVisible();
+  await expect(page.getByText('alpha', { exact: true })).toBeVisible();
+  await expect(page.getByText('활성 세션')).toBeVisible();
+  await expect(page.getByText('현재 세션')).toBeVisible();
+
+  // 같은 앱 인스턴스를 공유하는 스위트라 앞선 테스트가 만든 membership 이 남아 있을 수 있다.
+  const memberships = await (await page.request.get(`${origin}/account/memberships`)).json();
+  expect(memberships.memberships).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ clientId: 'alpha', clientName: 'Alpha', role: 'member', status: 'active' }),
+    ]),
+  );
+  expect(memberships.memberships.some((m: { clientId: string }) => m.clientId === 'inactive')).toBe(false);
+
+  const sessions = await (await page.request.get(`${origin}/account/sessions`)).json();
+  expect(sessions.sessions.length).toBeGreaterThan(0);
+  // 현재 세션은 정확히 하나여야 하고, 목록 맨 앞에 온다.
+  expect(sessions.sessions.filter((s: { current: boolean }) => s.current)).toHaveLength(1);
+  expect(sessions.sessions[0]).toMatchObject({ current: true });
+});
+
+test('the new account list endpoints require a session', async ({ page }) => {
+  expect((await page.request.get(`${origin}/account/memberships`)).status()).toBe(401);
+  expect((await page.request.get(`${origin}/account/sessions`)).status()).toBe(401);
+});
+
+test('the portal logs out every device from the sessions card', async ({ page }) => {
+  await login(page, 'google');
+  await page.goto(`${origin}/client`);
+  await page.locator('form[action^="/logout/all"] button[type="submit"]').click();
+  await expect(page).toHaveURL(/\/login/);
+  expect((await page.request.get(`${origin}/me`)).status()).toBe(401);
 });
 
 test('the portal name form rejects a too-short name', async ({ page }) => {
