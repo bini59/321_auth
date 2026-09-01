@@ -15,15 +15,20 @@ export class AdminSessionService {
     return this.redis;
   }
 
-  async create(meta: { ua: string; ip: string }): Promise<string> {
+  async create(meta: { ua: string; ip: string; userId?: string }): Promise<string> {
     const sid = randomBytes(32).toString('base64url');
-    await this.client().hset(key(sid), { createdAt: Date.now(), ua: meta.ua, ip: meta.ip });
+    await this.client().hset(key(sid), { createdAt: Date.now(), ua: meta.ua, ip: meta.ip, ...(meta.userId ? { userId: meta.userId } : {}) });
     await this.client().expire(key(sid), ENV.adminSessionTtlSeconds);
     return sid;
   }
 
   async exists(sid: string): Promise<boolean> {
     return (await this.client().exists(key(sid))) === 1;
+  }
+
+  async userId(sid: string): Promise<string | null> {
+    const value = await this.client().hget(key(sid), 'userId');
+    return value || null;
   }
 
   async revoke(sid: string): Promise<void> {

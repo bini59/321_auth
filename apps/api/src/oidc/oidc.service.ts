@@ -21,7 +21,7 @@ interface OauthState {
   returnTo: string;
   verifier: string;
   nonce: string;
-  mode?: 'login' | 'link' | 'account-login' | 'account-link';
+  mode?: 'login' | 'link' | 'account-login' | 'account-link' | 'admin-login';
   existingUserId?: string;
   existingSessionId?: string;
 }
@@ -45,7 +45,7 @@ export class OidcService {
     provider: ProviderName,
     clientId: string | null,
     returnTo: string,
-    opts: { mode?: 'login' | 'link' | 'account-login' | 'account-link'; existingUserId?: string; existingSessionId?: string } = {},
+    opts: { mode?: 'login' | 'link' | 'account-login' | 'account-link' | 'admin-login'; existingUserId?: string; existingSessionId?: string } = {},
   ): Promise<string> {
     const cfg = PROVIDERS[provider];
     const state = randomBytes(32).toString('base64url');
@@ -80,6 +80,10 @@ export class OidcService {
 
   async buildAccountAuthUrl(provider: ProviderName, mode: 'account-login' | 'account-link', existingUserId?: string, existingSessionId?: string) {
     return this.buildAuthUrl(provider, null, `${ENV.authOrigin}/client`, { mode, existingUserId, existingSessionId });
+  }
+
+  async buildAdminAuthUrl(provider: ProviderName, returnTo: string) {
+    return this.buildAuthUrl(provider, null, returnTo, { mode: 'admin-login' });
   }
 
   // GETDEL — state 1회만 소비 (리플레이 차단)

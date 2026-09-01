@@ -37,6 +37,14 @@ export class MembershipsService {
   }
 
   // 멱등 — PRD §7.10
+  async isAdmin(userId: string) {
+    const r = await this.db.query(
+      `SELECT 1 FROM memberships WHERE user_id = $1 AND role = 'admin' AND status = 'active' LIMIT 1`,
+      [userId],
+    );
+    return r.rows.length > 0;
+  }
+
   async ensure(userId: string, clientId: string) {
     await this.db.query(
       `INSERT INTO memberships (user_id, client_id) VALUES ($1, $2)

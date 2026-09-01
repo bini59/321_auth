@@ -8,13 +8,13 @@ describe('AdminSessionGuard', () => {
   }) as any;
 
   it('rejects missing and expired admin sessions', async () => {
-    const guard = new AdminSessionGuard({ exists: async () => false } as any);
+    const guard = new AdminSessionGuard({ exists: async () => false } as any, { isAdmin: async () => false } as any);
     await expect(guard.canActivate(context())).rejects.toBeInstanceOf(UnauthorizedException);
     await expect(guard.canActivate(context({ admin_sid: 'expired' }))).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('accepts a valid admin session cookie', async () => {
-    const guard = new AdminSessionGuard({ exists: async (sid: string) => sid === 'valid' } as any);
+    const guard = new AdminSessionGuard({ exists: async (sid: string) => sid === 'valid', userId: async () => 'user-1' } as any, { isAdmin: async () => true } as any);
     await expect(guard.canActivate(context({ admin_sid: 'valid' }))).resolves.toBe(true);
   });
 });

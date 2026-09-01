@@ -4,6 +4,8 @@ import { ENV } from '../config/env';
 import { hashAdminPassword } from './admin-password';
 import { AdminAuthController } from './admin-auth.controller';
 import type { AdminSessionService } from './admin-session.service';
+import type { OidcService } from '../oidc/oidc.service';
+import type { MembershipsService } from '../memberships/memberships.service';
 
 function responseDouble() {
   const response = {
@@ -30,6 +32,7 @@ describe('AdminAuthController', () => {
   const sessions = {
     create: async () => 'admin-session-id',
     exists: async (sid: string) => sid === 'admin-session-id',
+    userId: async () => 'user-1',
     revoke: async () => undefined,
   };
   let controller: AdminAuthController;
@@ -37,7 +40,11 @@ describe('AdminAuthController', () => {
   beforeEach(() => {
     ENV.adminPasswordHash = hashAdminPassword('admin secret');
     ENV.adminSessionTtlSeconds = 3600;
-    controller = new AdminAuthController(sessions as unknown as AdminSessionService);
+    controller = new AdminAuthController(
+      sessions as unknown as AdminSessionService,
+      {} as OidcService,
+      { isAdmin: async () => true } as unknown as MembershipsService,
+    );
   });
 
   it('logs in with a valid password and scopes the opaque cookie to Admin', async () => {

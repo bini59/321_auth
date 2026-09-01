@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Req,
   Res,
@@ -11,7 +12,9 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'node:crypto';
 import type { Request, Response } from 'express';
-import { ENV } from '../config/env';
+import { ENV, PROVIDERS, type ProviderName } from '../config/env';
+import { OidcService } from '../oidc/oidc.service';
+import { MembershipsService } from '../memberships/memberships.service';
 import { AdminCsrfGuard } from './admin-csrf.guard';
 import { AdminSessionService } from './admin-session.service';
 import { validateAdminReturnTo } from './admin-return-to';
@@ -33,7 +36,29 @@ function adminCookieOptions(overrides: Record<string, unknown> = {}) {
 
 @Controller('admin/auth')
 export class AdminAuthController {
-  constructor(private readonly sessions: AdminSessionService) {}
+  constructor(
+    private readonly sessions: AdminSessionService,
+    private readonly oidc: OidcService,
+    private readonly memberships: MembershipsService,
+  ) {}
+
+  @Get('login/:provider')
+  async startLogin(@Param('provider') provider: string, @Req() req: Request, @Res() res: Response) {
+    if (!Object.hasOwn(PROVIDERS, provider)) throw new UnauthorizedException();
+    const returnTo = validateAdminReturnTo(req.query.return_to);
+    const url = await this.oidc.buildAdminAuthUrl(provider as ProviderName, `${ENV.authOrigin}${returnTo}`);
+    const state = new URL(url).searchParams.get('state');
+    if (!state) throw new UnauthorizedException();
+    res.cookie('oauth_state', state, {
+      httpOnly: true,
+      secure: SECURE,
+      sameSite: 'lax' as const,
+      domain: ENV.cookieDomain || undefined,
+      path: '/',
+      maxAge: 10 * 60 * 1000,
+    });
+    return res.redirect(302, url);
+  }
 
   @Get('csrf')
   csrf(@Res() res: Response) {
@@ -65,7 +90,10 @@ export class AdminAuthController {
   @Get('session')
   async session(@Req() req: Request) {
     const sid = req.cookies?.[ADMIN_COOKIE];
-    if (!sid || !(await this.sessions.exists(sid))) throw new UnauthorizedException();
+    const userId = sid && await this.sessions.userId(sid);
+    if (!sid || !(await this.sessions.exists(sid)) || !userId || !(await this.memberships.isAdmin(userId))) {
+      throw new UnauthorizedException();
+    }
     return { authenticated: true };
   }
 

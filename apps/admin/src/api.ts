@@ -2,7 +2,12 @@ import type { AuthenticatedUser, HealthResponse } from '@321-auth/contracts';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { credentials: 'include', ...init });
-  if (!response.ok) throw new Error(`Auth API request failed (${response.status})`);
+  if (!response.ok) {
+    if (response.status === 401 && window.location.pathname !== '/admin/login') {
+      window.location.replace(`/admin/login?return_to=${encodeURIComponent(window.location.pathname + window.location.search + window.location.hash)}`);
+    }
+    throw new Error(`Auth API request failed (${response.status})`);
+  }
 
   const contentType = response.headers.get('content-type') ?? '';
   if (!contentType.toLowerCase().includes('application/json')) {
@@ -41,6 +46,7 @@ export const authApi = {
   health: () => request<HealthResponse>('/healthz'),
   currentUser: () => request<AuthenticatedUser>('/me'),
   csrf: () => request<AdminCsrfResponse>('/admin/auth/csrf'),
+  adminLogin: (provider: 'google' | 'kakao', returnTo: string) => { window.location.assign(`/admin/auth/login/${provider}?return_to=${encodeURIComponent(returnTo)}`); },
   session: () => request<AdminSessionResponse>('/admin/auth/session'),
   login: (password: string, csrfToken: string, returnTo: string) => request<AdminLoginResponse>('/admin/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify({ password, returnTo }) }),
   logout: (csrfToken: string) => request<{ ok: true }>('/admin/auth/logout', { method: 'POST', headers: { 'x-csrf-token': csrfToken } }),

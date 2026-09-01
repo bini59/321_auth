@@ -31,6 +31,7 @@ import { CsrfGuard } from '../security/csrf.guard';
 import type { ClientRow } from '../clients/clients.service';
 import { pool } from '../db/db';
 import { InvalidProfileImageError, ProfileService } from '../profile/profile.service';
+import { AdminSessionService } from '../admin/admin-session.service';
 import { renderAccountLoginPage, renderAccountPage } from './account-page';
 import { providerButton, providerButtonCss } from './provider-brand';
 import { THEME_TOGGLE_SCRIPT, cspNonce, escapeHtml, layout, loginShell, loginShellCss } from './portal-ui';
@@ -57,6 +58,7 @@ export class AuthController {
     private readonly users: UsersService,
     private readonly memberships: MembershipsService,
     private readonly profile: ProfileService,
+    private readonly adminSessions: AdminSessionService,
   ) {}
 
   @Get('healthz')
@@ -266,6 +268,9 @@ export class AuthController {
     const client = ctx.clientId ? await this.clients.find(ctx.clientId) : null;
     if (ctx.clientId && (!client || !client.is_active)) throw new BadRequestException('unknown client');
 
+    if (error && ctx.mode === 'admin-login') {
+      return res.redirect(302, `${ENV.authOrigin}/admin/login?error=denied&return_to=${encodeURIComponent(ctx.returnTo.replace(`${ENV.authOrigin}`, ''))}`);
+    }
     if (error) {
       const u = new URL(ctx.returnTo);
       u.searchParams.set('auth_error', 'denied');
@@ -297,6 +302,28 @@ export class AuthController {
 
     if (client?.auto_provision) {
       await this.memberships.ensure(userId, client.client_id);
+    }
+
+    if (ctx.mode === 'admin-login') {
+      if (!(await this.memberships.isAdmin(userId))) {
+        const u = new URL(ctx.returnTo);
+        const returnTo = u.pathname + u.search;
+        return res.redirect(302, `${ENV.authOrigin}/admin/login?error=forbidden&return_to=${encodeURIComponent(returnTo)}`);
+      }
+      const adminSid = await this.adminSessions.create({
+        userId,
+        ua: String(req.headers['user-agent'] ?? ''),
+        ip: req.ip ?? '',
+      });
+      res.cookie('admin_sid', adminSid, {
+        httpOnly: true,
+        secure: SECURE,
+        sameSite: 'lax' as const,
+        path: '/admin',
+        maxAge: ENV.adminSessionTtlSeconds * 1000,
+      });
+      res.clearCookie('oauth_state', oauthStateCookieOptions({ maxAge: 0, domain: ENV.cookieDomain || undefined }));
+      return res.redirect(302, ctx.returnTo);
     }
 
     let sid: string | undefined;
@@ -493,8 +520,8 @@ export class AuthController {
   }
 }
 
-function oauthStateCookieOptions() {
-  return cookieOptions({ domain: undefined, httpOnly: true, maxAge: 10 * 60 * 1000 });
+function oauthStateCookieOptions(overrides: Partial<Record<string, unknown>> = {}) {
+  return cookieOptions({ domain: undefined, httpOnly: true, maxAge: 10 * 60 * 1000, ...overrides });
 }
 
 function sidCookie() {

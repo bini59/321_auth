@@ -228,7 +228,19 @@ function Console() {
 }
 
 function App() {
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (window.location.pathname === '/admin/login') return;
+    authApi.session()
+      .then(() => setAuthenticated(true))
+      .catch(() => {
+        window.location.replace(`/admin/login?return_to=${encodeURIComponent(window.location.pathname + window.location.search + window.location.hash)}`);
+      });
+  }, []);
+
   if (window.location.pathname === '/admin/login') return <LoginPage brandName={BRAND.name} host={BRAND.host} />;
+  if (authenticated !== true) return <SkeletonPage />;
   return <Console />;
 }
 
