@@ -9,6 +9,7 @@ import { OidcService } from './oidc/oidc.service';
 import { UsersService } from './users/users.service';
 import { MembershipsService } from './memberships/memberships.service';
 import { AuthController } from './auth/auth.controller';
+import { AccountController } from './auth/account.controller';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ADMIN_DIST } from './admin-static';
 import { AdminAuthController } from './admin/admin-auth.controller';
@@ -37,7 +38,7 @@ import { ProfileService } from './profile/profile.service';
       { name: 'default', ttl: 60000, limit: 120 },
     ]),
   ],
-  controllers: [AuthController, AdminAuthController, AdminClientsController, AdminManagementController, AdminDashboardController],
+  controllers: [AuthController, AccountController, AdminAuthController, AdminClientsController, AdminManagementController, AdminDashboardController],
   providers: [
     SessionService,
     ClientsService,
