@@ -16,6 +16,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   return response.json() as Promise<T>;
 }
+
+function mutate<T>(path: string, method: 'POST' | 'PATCH' | 'DELETE', csrfToken: string, ...body: [] | [unknown]): Promise<T> {
+  const headers: Record<string, string> = { 'x-csrf-token': csrfToken };
+  const init: RequestInit = { method, headers };
+  if (body.length) {
+    headers['content-type'] = 'application/json';
+    init.body = JSON.stringify(body[0]);
+  }
+  return request<T>(path, init);
+}
+
 export interface AdminSessionResponse { authenticated: true }
 export interface AdminCsrfResponse { csrfToken: string }
 export interface AdminLoginResponse { ok: true; returnTo: string }
@@ -48,13 +59,13 @@ export const authApi = {
   csrf: () => request<AdminCsrfResponse>('/admin/auth/csrf'),
   adminLogin: (provider: 'google' | 'kakao', returnTo: string) => { window.location.assign(`/admin/auth/login/${provider}?return_to=${encodeURIComponent(returnTo)}`); },
   session: () => request<AdminSessionResponse>('/admin/auth/session'),
-  login: (password: string, csrfToken: string, returnTo: string) => request<AdminLoginResponse>('/admin/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify({ password, returnTo }) }),
-  logout: (csrfToken: string) => request<{ ok: true }>('/admin/auth/logout', { method: 'POST', headers: { 'x-csrf-token': csrfToken } }),
+  login: (password: string, csrfToken: string, returnTo: string) => mutate<AdminLoginResponse>('/admin/auth/login', 'POST', csrfToken, { password, returnTo }),
+  logout: (csrfToken: string) => mutate<{ ok: true }>('/admin/auth/logout', 'POST', csrfToken),
   services: () => request<AdminService[]>('/admin/services'),
-  createService: (body: unknown, csrfToken: string) => request<AdminServiceSecretResponse>('/admin/services', { method: 'POST', headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify(body) }),
-  updateService: (id: string, body: unknown, csrfToken: string) => request<AdminService>(`/admin/services/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify(body) }),
-  setServiceActive: (id: string, active: boolean, csrfToken: string) => request<AdminService>(`/admin/services/${encodeURIComponent(id)}${active ? '/activate' : ''}`, { method: active ? 'POST' : 'DELETE', headers: { 'x-csrf-token': csrfToken } }),
-  rotateServiceSecret: (id: string, csrfToken: string) => request<{ service_id: string; client_id: string; secret: string }>(`/admin/services/${encodeURIComponent(id)}/rotate-secret`, { method: 'POST', headers: { 'x-csrf-token': csrfToken } }),
+  createService: (body: unknown, csrfToken: string) => mutate<AdminServiceSecretResponse>('/admin/services', 'POST', csrfToken, body),
+  updateService: (id: string, body: unknown, csrfToken: string) => mutate<AdminService>(`/admin/services/${encodeURIComponent(id)}`, 'PATCH', csrfToken, body),
+  setServiceActive: (id: string, active: boolean, csrfToken: string) => mutate<AdminService>(`/admin/services/${encodeURIComponent(id)}${active ? '/activate' : ''}`, active ? 'POST' : 'DELETE', csrfToken),
+  rotateServiceSecret: (id: string, csrfToken: string) => mutate<{ service_id: string; client_id: string; secret: string }>(`/admin/services/${encodeURIComponent(id)}/rotate-secret`, 'POST', csrfToken),
   /** @deprecated Compatibility aliases for existing Admin callers. */
   clients: () => authApi.services(),
   createClient: (body: unknown, csrfToken: string) => authApi.createService(body, csrfToken),
@@ -64,8 +75,8 @@ export const authApi = {
   users: (search = '') => request<AdminUser[]>(`/admin/api/users?search=${encodeURIComponent(search)}`),
   user: (userId: string) => request<AdminUserDetail>(`/admin/api/users/${encodeURIComponent(userId)}`),
   memberships: (clientId: string, limit = 50, offset = 0) => request<AdminServiceMembership[]>(`/admin/api/clients/${encodeURIComponent(clientId)}/memberships?limit=${limit}&offset=${offset}`),
-  updateMembership: (userId: string, clientId: string, csrfToken: string, update: { role?: string; status?: string }) => request<AdminMembership>(`/admin/api/users/${encodeURIComponent(userId)}/memberships/${encodeURIComponent(clientId)}`, { method: 'PATCH', headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify(update) }),
-  revokeSessions: (userId: string, csrfToken: string) => request<{ ok: true }>(`/admin/api/users/${encodeURIComponent(userId)}/revoke-sessions`, { method: 'POST', headers: { 'x-csrf-token': csrfToken } }),
+  updateMembership: (userId: string, clientId: string, csrfToken: string, update: { role?: string; status?: string }) => mutate<AdminMembership>(`/admin/api/users/${encodeURIComponent(userId)}/memberships/${encodeURIComponent(clientId)}`, 'PATCH', csrfToken, update),
+  revokeSessions: (userId: string, csrfToken: string) => mutate<{ ok: true }>(`/admin/api/users/${encodeURIComponent(userId)}/revoke-sessions`, 'POST', csrfToken),
   audit: () => request<AdminAudit[]>('/admin/api/audit'),
   overview: () => request<AdminOverview>('/admin/api/overview'),
   deletionQueue: () => request<DeletionQueueItem[]>('/admin/api/deletion-queue'),
