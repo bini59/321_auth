@@ -8,6 +8,8 @@ import { test, expect, type Page } from '@playwright/test';
 // is loaded here so the E2E test exercises the same emitted controller metadata.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { AuthController } = require('../../dist/auth/auth.controller.js');
+const { AccountController } = require('../../dist/auth/account.controller.js');
+const { AdminSessionService } = require('../../dist/admin/admin-session.service.js');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { AppSecretGuard } = require('../../dist/security/app-secret.guard.js');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -61,10 +63,13 @@ class FakeSessions {
 class FakeUsers {
   deleted = false;
   name = 'E2E User';
-  async findById(id: string) { return id === USER_ID && !this.deleted ? { id, email: 'e2e@example.test', name: this.name, avatar_url: null, profile_completed_at: '2026-08-07T00:00:00.000Z' } : null; }
+  avatarUrl: string | null = null;
+  linkedUserId: string | undefined;
+  async findById(id: string) { return id === USER_ID && !this.deleted ? { id, email: 'e2e@example.test', name: this.name, avatar_url: this.avatarUrl, profile_completed_at: '2026-08-07T00:00:00.000Z' } : null; }
   async upsertFromProvider() { return USER_ID; }
+  async linkIdentity(userId: string) { this.linkedUserId = userId; }
   async requestDeletion() { this.deleted = true; }
-  async updateProfile(userId: string, name?: string) { if (name != null) this.name = name; return this.findById(userId); }
+  async updateProfile(userId: string, name?: string, avatarUrl?: string) { if (name != null) this.name = name; if (avatarUrl != null) this.avatarUrl = avatarUrl; return this.findById(userId); }
   async identities() { return [{ provider: 'google', linkedAt: '2026-08-07T00:00:00.000Z' }]; }
 }
 
@@ -89,13 +94,16 @@ class FakeMemberships {
 }
 
 class FakeOidc {
-  private readonly states = new Map<string, { provider: string; clientId: string; returnTo: string; mode?: string; expiresAt: number }>();
+  private readonly states = new Map<string, { provider: string; clientId: string | null; returnTo: string; mode?: string; existingUserId?: string; existingSessionId?: string; expiresAt: number }>();
   constructor(private readonly providerOrigin: string) {}
   validateReturnTo(returnTo: string | undefined, client: { allowed_origins: string[]; default_redirect: string }) { return returnTo ?? (client.default_redirect || `${this.providerOrigin}/logged-in`); }
-  async buildAuthUrl(provider: string, clientId: string, returnTo: string) {
+  async buildAuthUrl(provider: string, clientId: string | null, returnTo: string, opts: { mode?: string; existingUserId?: string; existingSessionId?: string } = {}) {
     const state = `${provider}-${this.states.size + 1}`;
-    this.states.set(state, { provider, clientId, returnTo, expiresAt: Date.now() + 600_000 });
+    this.states.set(state, { provider, clientId, returnTo, ...opts, expiresAt: Date.now() + 600_000 });
     return `${this.providerOrigin}/authorize?provider=${provider}&state=${state}`;
+  }
+  async buildAccountAuthUrl(provider: string, mode: string, existingUserId?: string, existingSessionId?: string) {
+    return this.buildAuthUrl(provider, null, `${ENV.authOrigin}/client`, { mode, existingUserId, existingSessionId });
   }
   async consumeState(state: string) { const value = this.states.get(state); this.states.delete(state); return value && value.expiresAt > Date.now() ? value : null; }
   expire(state: string) { const value = this.states.get(state); if (value) value.expiresAt = 0; }
@@ -122,11 +130,12 @@ class MockProvider {
 }
 
 @Module({
-  controllers: [AuthController],
+  controllers: [AuthController, AccountController],
   providers: [
     { provide: ClientsService, useClass: FakeClients },
     { provide: OidcService, useFactory: (server: MockProvider) => new FakeOidc(server.origin), inject: [MockProvider] },
     { provide: SessionService, useClass: FakeSessions },
+    { provide: AdminSessionService, useValue: { create: () => { throw new Error('Unexpected admin session in user login'); } } },
     { provide: UsersService, useClass: FakeUsers },
     { provide: MembershipsService, useClass: FakeMemberships },
     { provide: ProfileService, useClass: FakeProfile },
@@ -265,8 +274,57 @@ test('the portal renders the linked apps and active sessions cards for the signe
 });
 
 test('the new account list endpoints require a session', async ({ page }) => {
+  expect((await page.request.get(`${origin}/account`)).status()).toBe(401);
   expect((await page.request.get(`${origin}/account/memberships`)).status()).toBe(401);
   expect((await page.request.get(`${origin}/account/sessions`)).status()).toBe(401);
+  expect((await page.request.get(`${origin}/account/link/google`)).status()).toBe(401);
+});
+
+test('account login and identity linking share the callback without replacing the linked session', async ({ page }) => {
+  await page.goto(`${origin}/client/login/google`);
+  await expect(page).toHaveURL(`${origin}/client`);
+  const sid = (await page.context().cookies(origin)).find((cookie) => cookie.name === 'sid')!.value;
+  expect(await (await page.request.get(`${origin}/account`)).json()).toMatchObject({ userId: USER_ID, profileCompleted: true });
+
+  await page.goto(`${origin}/account/link/kakao`);
+  await expect(page).toHaveURL(`${origin}/client`);
+  expect((app.get(UsersService) as FakeUsers).linkedUserId).toBe(USER_ID);
+  expect((await page.context().cookies(origin)).find((cookie) => cookie.name === 'sid')!.value).toBe(sid);
+  expect((await page.context().cookies(origin)).some((cookie) => cookie.name === 'admin_sid')).toBe(false);
+});
+
+test('account linking rejects a callback after the initiating session is replaced', async ({ page }) => {
+  await login(page, 'google');
+  const start = await page.request.get(`${origin}/account/link/kakao`, { maxRedirects: 0 });
+  const state = new URL(start.headers().location!).searchParams.get('state');
+  await page.context().addCookies([{ name: 'sid', value: 'different-session', url: origin }]);
+  expect((await page.request.get(`${origin}/callback/kakao?state=${state}&code=x`)).status()).toBe(401);
+});
+
+test('account profile and avatar routes preserve CSRF, validation, and response status', async ({ page }) => {
+  await login(page, 'google');
+  await page.goto(`${origin}/client`);
+  const csrf = (await page.context().cookies(origin)).find((cookie) => cookie.name === 'csrf')!.value;
+  const headers = { 'x-csrf-token': csrf };
+  expect((await page.request.patch(`${origin}/account/profile`, { data: { name: 'Updated Name' } })).status()).toBe(403);
+  for (const path of ['profile', 'avatar', 'delete']) {
+    expect((await page.request.post(`${origin}/account/${path}`)).status()).toBe(403);
+  }
+  expect((await page.request.patch(`${origin}/account/profile`, { headers, data: { name: 'a' } })).status()).toBe(400);
+  const profile = await page.request.patch(`${origin}/account/profile`, { headers, data: { name: 'Updated Name' } });
+  expect(profile.status()).toBe(200);
+  expect(await profile.json()).toMatchObject({ id: USER_ID, name: 'Updated Name', identities: [{ provider: 'google' }] });
+  expect((await page.request.post(`${origin}/account/avatar`, { headers })).status()).toBe(400);
+  const avatar = await page.request.post(`${origin}/account/avatar`, {
+    headers,
+    multipart: { file: { name: 'avatar.png', mimeType: 'image/png', buffer: Buffer.from('image handled by FakeProfile') } },
+  });
+  expect(avatar.status()).toBe(200);
+  expect(await avatar.json()).toEqual({ avatarUrl: 'https://static.example/profile.png' });
+  expect((await page.request.post(`${origin}/account/avatar`, {
+    headers,
+    multipart: { file: { name: 'oversized.png', mimeType: 'image/png', buffer: Buffer.alloc(5 * 1024 * 1024 + 1) } },
+  })).status()).toBe(413);
 });
 
 test('the portal logs out every device from the sessions card', async ({ page }) => {

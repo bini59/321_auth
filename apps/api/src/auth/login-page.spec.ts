@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderLoginPage } from './auth.controller';
+import { renderLoginPage } from './login-page';
 
 const CLIENT = { name: 'Archive', logo_url: null, theme_color: '#3b82f6' };
 
