@@ -31,7 +31,6 @@ export const ENV = {
   staticOrigin: optional('STATIC_ORIGIN') || 'https://static.bini59.dev',
   profileStorageDir: optional('PROFILE_STORAGE_DIR') || '/var/lib/321-auth/profile',
   sessionTtlSeconds: Number(process.env.SESSION_TTL_SECONDS ?? 1209600),
-  adminPasswordHash: optional('ADMIN_PASSWORD_HASH'),
   adminSessionTtlSeconds: Number(process.env.ADMIN_SESSION_TTL_SECONDS ?? 28800),
   csrfSalt: optional('CSRF_TOKEN_SALT'),
   allowedOrigins: (process.env.CORS_ORIGINS ?? '')
