@@ -25,7 +25,6 @@ const payload = { name: '서비스', auto_provision: false };
 
 describe('admin mutation request contracts', () => {
   it.each([
-    ['login', () => authApi.login('test-password', token, '/admin#users'), '/admin/auth/login', 'POST', { password: 'test-password', returnTo: '/admin#users' }],
     ['create', () => authApi.createService(payload, token), '/admin/services', 'POST', payload],
     ['update', () => authApi.updateService(serviceId, payload, token), servicePath, 'PATCH', payload],
     ['membership', () => authApi.updateMembership(userId, serviceId, token, { status: 'suspended' }), `${userPath}/memberships/service%2Fa%20%3F`, 'PATCH', { status: 'suspended' }],

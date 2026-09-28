@@ -29,7 +29,6 @@ function mutate<T>(path: string, method: 'POST' | 'PATCH' | 'DELETE', csrfToken:
 
 export interface AdminSessionResponse { authenticated: true }
 export interface AdminCsrfResponse { csrfToken: string }
-export interface AdminLoginResponse { ok: true; returnTo: string }
 export interface AdminService { client_id: string; service_id?: string; serviceId?: string; name: string; service_name?: string; serviceName?: string; allowed_origins: string[]; default_redirect: string; auto_provision: boolean; onboarding_path: string | null; is_active: boolean; logo_url: string | null; theme_color: string | null; membership_count?: number }
 /** @deprecated Use AdminService. */
 export type AdminClient = AdminService;
@@ -59,7 +58,6 @@ export const authApi = {
   csrf: () => request<AdminCsrfResponse>('/admin/auth/csrf'),
   adminLogin: (provider: 'google' | 'kakao', returnTo: string) => { window.location.assign(`/admin/auth/login/${provider}?return_to=${encodeURIComponent(returnTo)}`); },
   session: () => request<AdminSessionResponse>('/admin/auth/session'),
-  login: (password: string, csrfToken: string, returnTo: string) => mutate<AdminLoginResponse>('/admin/auth/login', 'POST', csrfToken, { password, returnTo }),
   logout: (csrfToken: string) => mutate<{ ok: true }>('/admin/auth/logout', 'POST', csrfToken),
   services: () => request<AdminService[]>('/admin/services'),
   createService: (body: unknown, csrfToken: string) => mutate<AdminServiceSecretResponse>('/admin/services', 'POST', csrfToken, body),

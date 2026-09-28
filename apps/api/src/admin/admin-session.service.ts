@@ -15,9 +15,9 @@ export class AdminSessionService {
     return this.redis;
   }
 
-  async create(meta: { ua: string; ip: string; userId?: string }): Promise<string> {
+  async create(meta: { ua: string; ip: string; userId: string }): Promise<string> {
     const sid = randomBytes(32).toString('base64url');
-    await this.client().hset(key(sid), { createdAt: Date.now(), ua: meta.ua, ip: meta.ip, ...(meta.userId ? { userId: meta.userId } : {}) });
+    await this.client().hset(key(sid), { createdAt: Date.now(), ua: meta.ua, ip: meta.ip, userId: meta.userId });
     await this.client().expire(key(sid), ENV.adminSessionTtlSeconds);
     return sid;
   }
@@ -35,4 +35,3 @@ export class AdminSessionService {
     await this.client().del(key(sid));
   }
 }
-
