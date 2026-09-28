@@ -19,6 +19,7 @@ import { AdminCsrfGuard } from './admin-csrf.guard';
 import { AdminSessionService } from './admin-session.service';
 import { validateAdminReturnTo } from './admin-return-to';
 import { verifyAdminPassword } from './admin-password';
+import { setOauthStateCookie } from '../auth/cookies';
 
 const SECURE = ENV.authOrigin.startsWith('https://');
 const ADMIN_COOKIE = 'admin_sid';
@@ -47,16 +48,7 @@ export class AdminAuthController {
     if (!Object.hasOwn(PROVIDERS, provider)) throw new UnauthorizedException();
     const returnTo = validateAdminReturnTo(req.query.return_to);
     const url = await this.oidc.buildAdminAuthUrl(provider as ProviderName, `${ENV.authOrigin}${returnTo}`);
-    const state = new URL(url).searchParams.get('state');
-    if (!state) throw new UnauthorizedException();
-    res.cookie('oauth_state', state, {
-      httpOnly: true,
-      secure: SECURE,
-      sameSite: 'lax' as const,
-      domain: ENV.cookieDomain || undefined,
-      path: '/',
-      maxAge: 10 * 60 * 1000,
-    });
+    setOauthStateCookie(res, url);
     return res.redirect(302, url);
   }
 
