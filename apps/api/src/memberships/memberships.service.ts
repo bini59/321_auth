@@ -2,6 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DB_PROVIDER } from '../db/db.module';
 import type { DbPool } from '../db/db';
 
+// auth 콘솔 관리자는 이 전용 client 의 admin membership 으로만 판정한다.
+// 다른 앱의 role 은 그 앱의 도메인 권한이라 콘솔 권한으로 쓰지 않는다 (ADR-0001).
+export const AUTH_ADMIN_CLIENT_ID = 'auth-admin';
+
 @Injectable()
 export class MembershipsService {
   constructor(@Inject(DB_PROVIDER) private readonly db: DbPool) {}
@@ -36,15 +40,15 @@ export class MembershipsService {
     }));
   }
 
-  // 멱등 — PRD §7.10
   async isAdmin(userId: string) {
     const r = await this.db.query(
-      `SELECT 1 FROM memberships WHERE user_id = $1 AND role = 'admin' AND status = 'active' LIMIT 1`,
-      [userId],
+      `SELECT 1 FROM memberships WHERE user_id = $1 AND client_id = $2 AND role = 'admin' AND status = 'active' LIMIT 1`,
+      [userId, AUTH_ADMIN_CLIENT_ID],
     );
     return r.rows.length > 0;
   }
 
+  // 멱등 — PRD §7.10
   async ensure(userId: string, clientId: string) {
     await this.db.query(
       `INSERT INTO memberships (user_id, client_id) VALUES ($1, $2)

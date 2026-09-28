@@ -1,5 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MembershipsService } from './memberships.service';
+import { AUTH_ADMIN_CLIENT_ID, MembershipsService } from './memberships.service';
+
+describe('MembershipsService.isAdmin', () => {
+  it('only accepts an admin membership of the auth-admin client', async () => {
+    const db = { query: vi.fn().mockResolvedValue({ rows: [] }) };
+    await expect(new MembershipsService(db as never).isAdmin('u1')).resolves.toBe(false);
+    const [sql, params] = db.query.mock.calls[0];
+    expect(sql).toContain('client_id = $2');
+    expect(params).toEqual(['u1', AUTH_ADMIN_CLIENT_ID]);
+  });
+});
 
 describe('MembershipsService.listForUser', () => {
   it('maps rows to the portal shape', async () => {
