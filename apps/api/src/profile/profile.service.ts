@@ -7,6 +7,8 @@ import { ENV } from '../config/env';
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
+// 업로드 UI 가 받는 형식만 디코드한다. HEIF/SVG 등 나머지 디코더는 공격면이라 열지 않는다.
+const INPUT_FORMATS = new Set(['png', 'jpeg', 'webp']);
 
 export class InvalidProfileImageError extends Error {}
 
@@ -19,9 +21,10 @@ export class ProfileService {
 
     let output: Buffer;
     try {
-      output = await sharp(input, { limitInputPixels: 16_000_000 })
-        .png({ compressionLevel: 9 })
-        .toBuffer();
+      const image = sharp(input, { limitInputPixels: 16_000_000 });
+      const { format } = await image.metadata();
+      if (!format || !INPUT_FORMATS.has(format)) throw new InvalidProfileImageError('unsupported image format');
+      output = await image.png({ compressionLevel: 9 }).toBuffer();
     } catch {
       throw new InvalidProfileImageError('invalid profile image');
     }
