@@ -299,21 +299,31 @@ export class AuthController {
 
   @Get('deletions')
   @UseGuards(AppSecretGuard)
-  async deletions(@Query('since') since: string | undefined) {
+  async deletions(@Query('since') since: string | undefined, @Req() req: Request) {
     const sinceIso = since && !isNaN(Date.parse(since)) ? since : undefined;
+    // ponytail: 큐 행은 지우지 않고 앱별 ack 로 거른다. 모든 앱 ack 후 정리가 필요하면 배치로 추가.
     const r = await pool.query(
-      `SELECT user_id, requested_at FROM deletion_queue
-       WHERE ($1::timestamptz IS NULL OR requested_at > $1::timestamptz)
-       ORDER BY requested_at ASC`,
-      [sinceIso ?? null],
+      `SELECT q.user_id, q.requested_at FROM deletion_queue q
+       WHERE ($1::timestamptz IS NULL OR q.requested_at > $1::timestamptz)
+         AND NOT EXISTS (SELECT 1 FROM deletion_acks a WHERE a.user_id = q.user_id AND a.client_id = $2)
+       ORDER BY q.requested_at ASC`,
+      [sinceIso ?? null, req.authClientId],
     );
     return { deletions: r.rows.map((x) => ({ userId: x.user_id, requestedAt: x.requested_at })) };
   }
 
   @Post('deletions/:userId/ack')
   @UseGuards(AppSecretGuard)
-  async ackDeletion(@Param('userId') userId: string) {
-    await pool.query(`DELETE FROM deletion_queue WHERE user_id = $1`, [userId]);
+  async ackDeletion(@Param('userId') userId: string, @Req() req: Request) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+      throw new BadRequestException('invalid user id');
+    }
+    await pool.query(
+      `INSERT INTO deletion_acks (user_id, client_id)
+       SELECT user_id, $2 FROM deletion_queue WHERE user_id = $1
+       ON CONFLICT DO NOTHING`,
+      [userId, req.authClientId],
+    );
     return { ok: true };
   }
 

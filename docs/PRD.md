@@ -310,6 +310,7 @@ export const JWKS = {
 | POST | `/logout`             | 브라우저             | 세션 쿠키 + CSRF   |
 | POST | `/logout/all`         | 브라우저             | 세션 쿠키 + CSRF   |
 | GET  | `/deletions?since=`   | **앱 서버**         | 앱 시크릿          |
+| POST | `/deletions/:userId/ack?client_id=` | **앱 서버** | 앱 시크릿 (호출한 앱에만 확인 처리) |
 
 
 앱 서버 전용 4개는 쿠키가 아니라 **앱 시크릿 헤더**로 인증. 브라우저에서 직접 호출되면 안 됨. `/verify`는 예외적으로 쿠키도 함께 받지만, 앱 시크릿을 같이 요구해서 아무나 남의 세션을 조회하는 것을 차단.
