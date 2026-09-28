@@ -71,6 +71,22 @@ describe('UsersService.upsertFromProvider', () => {
     const insert = client.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO users'));
     expect(insert?.[0]).toContain("VALUES ($1, $2, $3, $4, 'provider', 'provider')");
   });
+
+  it('does not store or reserve an unverified provider email', async () => {
+    const { db, client } = fakeDb([]);
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('INSERT INTO users')) return { rows: [{ id: 'u-new' }], rowCount: 1 };
+      return { rows: [], rowCount: 0 };
+    });
+
+    await new UsersService(db as never).upsertFromProvider({ ...identity, provider: 'kakao', emailVerified: false });
+
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('lower(email)'))).toBe(false);
+    const insert = client.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO users'));
+    expect(insert?.[1].slice(0, 2)).toEqual([null, false]);
+    const link = client.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO identities'));
+    expect(link?.[1][3]).toBe('a@example.test');
+  });
 });
 
 describe('UsersService.linkIdentity', () => {
