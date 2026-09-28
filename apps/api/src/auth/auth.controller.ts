@@ -200,7 +200,6 @@ export class AuthController {
         path: '/admin',
         maxAge: ENV.adminSessionTtlSeconds * 1000,
       });
-      res.clearCookie('oauth_state', oauthStateCookieOptions({ maxAge: 0, domain: ENV.cookieDomain || undefined }));
       return res.redirect(302, ctx.returnTo);
     }
 
