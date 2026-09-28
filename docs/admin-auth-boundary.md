@@ -11,6 +11,7 @@ Admin은 기존 NestJS auth 서버가 `https://auth.bini59.dev/admin` 및 `/admi
 - 로그인과 로그아웃은 `/admin` 경로의 `admin_csrf` double-submit 쿠키와 `x-csrf-token` 헤더가 일치해야 한다. 일반 OAuth의 `csrf` 쿠키와 분리한다.
 - 로그인은 분당 5회로 제한되며, 비밀번호 오류·누락·미설정은 동일한 비민감 오류로 응답한다.
 - 브라우저 번들에는 `ADMIN_API_KEY`, 앱 시크릿, `x-app-secret` 값을 넣지 않는다.
+- 콘솔 관리자는 전용 client `auth-admin`에 `role=admin`, `status=active` membership이 있는 사용자만이다. 다른 앱의 `admin` 역할은 그 앱 내부 권한일 뿐 콘솔 권한을 주지 않는다.
 - 관리자 비밀번호는 `ADMIN_PASSWORD_HASH`에 scrypt-v1 인코딩으로만 설정한다. 평문 비밀번호, 관리자 해시, 앱 시크릿은 브라우저 번들에 넣지 않는다.
 
 ## 다음 단계의 보안 요구사항
