@@ -248,6 +248,7 @@ export class AuthController {
     return {
       userId: user.id,
       email: user.email,
+      emailVerified: user.email_verified,
       name: user.name,
       avatarUrl: user.avatar_url,
       profileComplete: Boolean(user.profile_completed_at),
@@ -278,6 +279,7 @@ export class AuthController {
     return {
       userId: user.id,
       email: user.email,
+      emailVerified: user.email_verified,
       name: user.name,
       avatarUrl: user.avatar_url,
       membership,

@@ -127,16 +127,19 @@ export class UsersService {
         return userId;
       }
 
+      // users.email 에는 검증된 이메일만 둔다. 미검증 이메일이 주소를 선점해
+      // 진짜 주인의 이메일을 막거나 앱에 신뢰 근거로 넘어가면 안 된다 (원본은 identities.email_at_link).
+      const email = id.emailVerified ? id.email : null;
       // 이메일이 이미 다른 유저에 있으면 자동 병합하지 않고 NULL로 생성
       const taken =
-        id.email != null &&
-        ((await client.query(`SELECT 1 FROM users WHERE lower(email) = lower($1)`, [id.email]))
+        email != null &&
+        ((await client.query(`SELECT 1 FROM users WHERE lower(email) = lower($1)`, [email]))
           .rowCount ?? 0) > 0;
 
       const inserted = await client.query(
         `INSERT INTO users (email, email_verified, name, avatar_url, name_source, avatar_source)
          VALUES ($1, $2, $3, $4, 'provider', 'provider') RETURNING id`,
-        [taken ? null : id.email, !taken && id.emailVerified, id.name, id.avatarUrl],
+        [taken ? null : email, !taken && email != null, id.name, id.avatarUrl],
       );
       const userId = inserted.rows[0].id as string;
 
