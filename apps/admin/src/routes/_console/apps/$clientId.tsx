@@ -152,7 +152,7 @@ function ServiceMembers({ clientId }: { clientId: string }) {
               {members.map((m) => (
                 <tr key={m.userId}>
                   <td>
-                    <Link to="/users" search={{ id: m.userId }} className="cell-main" style={{ color: 'inherit', textDecoration: 'none' }}>
+                    <Link to="/users/$userId" params={{ userId: m.userId }} className="cell-main" style={{ color: 'inherit', textDecoration: 'none' }}>
                       <Avatar className="avatar avatar--sm" name={m.name} url={null} />
                       <div style={{ minWidth: 0 }}>
                         <div className="truncate" style={{ fontWeight: 500 }}>{m.name || '(이름 없음)'}</div>
