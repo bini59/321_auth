@@ -1,8 +1,10 @@
-// apps/admin/src/sections/operations.tsx
+import { createFileRoute } from '@tanstack/react-router';
 import { useAudit, useDeletionQueue } from '@/api/queries';
-import { SkeletonPage } from '@/layout/skeleton-page';
+import { SkeletonPage } from '@/components/skeleton-page';
 
-export function OperationsSection() {
+export const Route = createFileRoute('/_console/operations')({ component: OperationsPage });
+
+function OperationsPage() {
   const auditQuery = useAudit();
   const queueQuery = useDeletionQueue();
   if (auditQuery.isLoading || queueQuery.isLoading) return <SkeletonPage />;

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { AppShell, ThemeToggle } from '@bini59/design';
+import { Link } from '@tanstack/react-router';
 import { useHealth, useLogout, useSession } from '@/api/queries';
 import { SearchIcon } from '@/components/icons';
 import { BRAND, NAV, TITLE, type Section } from './nav';
@@ -23,6 +24,7 @@ export function ConsoleShell({ section, onOpenPalette, children }: { section: Se
     <AppShell
       brand={{ mark: 'A', name: BRAND.name, host: BRAND.host }}
       nav={NAV}
+      renderLink={(item, inner) => <Link to={NAV.find((entry) => entry.id === item.id)!.to}>{inner}</Link>}
       activeId={section}
       user={user}
       onLogout={() => logout.mutate()}

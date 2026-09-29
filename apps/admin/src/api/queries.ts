@@ -9,7 +9,8 @@ const SERVICES = ['services'] as const;
 const userKey = (userId: string | null) => ['user', userId] as const;
 
 // 페이지당 한 번만 확인한다. 이후 만료는 각 API 호출의 401 처리가 맡는다.
-export const useSession = (enabled: boolean) => useQuery({ queryKey: ['session'], queryFn: () => authApi.session(), enabled, staleTime: Infinity });
+export const sessionQuery = { queryKey: ['session'], queryFn: () => authApi.session(), staleTime: Infinity } as const;
+export const useSession = (enabled: boolean) => useQuery({ ...sessionQuery, enabled });
 export const useHealth = () => useQuery({ queryKey: ['health'], queryFn: () => authApi.health() });
 export const useOverview = () => useQuery({ queryKey: ['overview'], queryFn: () => authApi.overview() });
 export const useAudit = () => useQuery({ queryKey: ['audit'], queryFn: () => authApi.audit() });

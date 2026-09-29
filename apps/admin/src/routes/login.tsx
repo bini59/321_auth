@@ -1,24 +1,26 @@
-// apps/admin/src/sections/login.tsx
-import { useEffect, useState } from 'react';
+import { createFileRoute } from '@tanstack/react-router';
 import { ThemeToggle } from '@bini59/design';
 import { authApi } from '@/api';
+import { BRAND } from '@/components/nav';
 
-export function LoginPage({ brandName = 'Auth Admin', host = 'bini59.dev' }: { brandName?: string; host?: string }) {
-  const [error, setError] = useState('');
-  const returnTo = new URLSearchParams(window.location.search).get('return_to') || '/admin';
+export const Route = createFileRoute('/login')({
+  validateSearch: (search: Record<string, unknown>): { return_to?: string; error?: string } => ({
+    return_to: typeof search.return_to === 'string' ? search.return_to : undefined,
+    error: typeof search.error === 'string' ? search.error : undefined,
+  }),
+  component: LoginPage,
+});
 
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('error') === 'forbidden') {
-      setError('관리자 권한이 있는 계정으로 로그인해주세요.');
-    }
-  }, []);
+function LoginPage() {
+  const { return_to, error } = Route.useSearch();
+  const returnTo = return_to || '/admin';
 
   return (
     <main className="login-page">
       <div className="login-inner">
         <div className="brand" style={{ padding: 0, marginBottom: 26 }}>
           <div className="brand-mark" style={{ width: 26, height: 26, borderRadius: 7, fontSize: 13 }}>A</div>
-          <span className="brand-name" style={{ fontSize: 14 }}>{brandName}</span>
+          <span className="brand-name" style={{ fontSize: 14 }}>{BRAND.name}</span>
         </div>
 
         <div className="login-card">
@@ -30,10 +32,10 @@ export function LoginPage({ brandName = 'Auth Admin', host = 'bini59.dev' }: { b
           <button className="btn btn--block" style={{ marginTop: 10 }} type="button" onClick={() => authApi.adminLogin('kakao', returnTo)}>
             카카오로 로그인
           </button>
-          {error && <p className="error" style={{ marginTop: 14, marginBottom: 0 }} role="alert">{error}</p>}
+          {error === 'forbidden' && <p className="error" style={{ marginTop: 14, marginBottom: 0 }} role="alert">관리자 권한이 있는 계정으로 로그인해주세요.</p>}
           <div className="login-foot">
             <span className="dot dot--ok" />
-            {host} 통합 인증
+            {BRAND.host} 통합 인증
           </div>
         </div>
 
