@@ -99,24 +99,24 @@ const COMPONENT_CSS = `.topbar{position:sticky;top:0;z-index:20;display:flex;ali
 .solo-foot{display:flex;align-items:center;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);color:var(--fg-3);font-size:12px}
 .page-foot{display:flex;align-items:center;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);color:var(--fg-3);font-size:12px}`;
 
-/** 로그인 화면 전용 셸. 상단바 아래 남은 높이를 좌측 340px 패널 + 우측 중앙 블록으로 채운다. */
-const LOGIN_SHELL_CSS = `body{min-height:100vh;display:flex;flex-direction:column}
-.lshell{flex:1;display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr)}
-.lpanel{background:var(--panel);border-right:1px solid var(--border);padding:34px 30px;display:flex;flex-direction:column;gap:14px}
-.lmark{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:700;flex:none;overflow:hidden}
-.lmark img{width:34px;height:34px;border-radius:8px;object-fit:cover;display:block}
-.lid{display:grid;gap:4px;min-width:0}
-.lname{font-size:18px;font-weight:600;letter-spacing:-.02em}
-.lhost{font-size:12.5px;color:var(--fg-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lfoot{border-top:1px solid var(--border);padding-top:14px;display:grid;gap:7px;font-size:12px;color:var(--fg-3)}
+/** 로그인 화면 전용 셸. 서비스 카드 하나를 가운데 둔다. */
+const LOGIN_SHELL_CSS = `.lpage{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+.lpage .topbar{position:static;border-bottom:0;background:transparent}
+.lstage{flex:1;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;padding:12px 20px 64px}
+.lcard{width:100%;max-width:400px;padding:36px 32px 24px;border:1px solid var(--border);border-radius:16px;background:var(--panel);box-shadow:var(--shadow);display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;text-align:center}
+.lmark{width:56px;height:56px;border-radius:14px;display:grid;place-items:center;margin-bottom:18px;font-size:22px;font-weight:700;overflow:hidden}
+.lmark img{width:56px;height:56px;object-fit:cover;display:block}
+.ltitle{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.3;text-wrap:balance;overflow-wrap:anywhere}
+.lhost{margin-top:4px;font-size:12.5px;color:var(--fg-3)}
+.lnotice{margin:8px 0 24px;font-size:14px;color:var(--fg-2)}
+.lcard .alert{width:100%;margin:0 0 16px;text-align:left}
+.lbuttons{width:100%;display:grid;gap:12px}
+.lbuttons .oauth{margin:0;height:48px}
+.lbuttons .oauth:hover{filter:brightness(.95)}
+.lbuttons .oauth:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.lfoot{width:100%;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--fg-3);text-align:left}
 .lrow{display:flex;align-items:center;gap:7px;min-width:0}
-.ltrunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lmain{display:grid;place-items:center;padding:34px 30px}
-.lblock{width:100%;max-width:296px}
-.lnotice{margin:0 0 16px;font-size:13px;color:var(--fg-2)}
-.lbuttons{display:grid;gap:10px}
-.lbuttons .oauth{margin:0}
-@media (max-width:720px){.lshell{grid-template-columns:minmax(0,1fr)}.lpanel{border-right:0;border-bottom:1px solid var(--border)}}`;
+.ltrunc{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}`;
 
 export function loginShellCss(): string {
   return LOGIN_SHELL_CSS;
@@ -133,22 +133,15 @@ export function loginShell(options: {
   footer: string;
   notice: string;
   buttons: string;
-  panelStyle?: string;
   block?: string;
 }): string {
-  const panelStyle = options.panelStyle ? ` style="${options.panelStyle}"` : '';
   const host = options.host ? `<span class="lhost mono">${escapeHtml(options.host)}</span>` : '';
-  return `${topbar()}<main class="lshell">
-<div class="lpanel"${panelStyle}>${options.mark}
-<div class="lid"><span class="lname">${escapeHtml(options.name)}</span>${host}</div>
-<span style="flex:1"></span>
-<div class="lfoot">${options.footer}</div>
-</div>
-<div class="lmain"><div class="lblock">
+  return `<div class="lpage">${topbar()}<main class="lstage"><section class="lcard">${options.mark}
+<h1 class="ltitle">${escapeHtml(options.name)}에 로그인</h1>${host}
 <p class="lnotice">${escapeHtml(options.notice)}</p>${options.block ?? ''}
 <div class="lbuttons">${options.buttons}</div>
-</div></div>
-</main>`;
+<div class="lfoot">${options.footer}</div>
+</section></main></div>`;
 }
 
 export function portalCss(): string {
