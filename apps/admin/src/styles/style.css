@@ -140,6 +140,15 @@ table.data tr.inactive { opacity: 0.55; }
 .right { text-align: right; }
 .actions { display: flex; gap: 5px; justify-content: flex-end; }
 
+/* ---------- services ---------- */
+.service-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.service-card { display: grid; gap: 12px; padding: 16px; color: inherit; text-decoration: none; }
+.service-card:hover { background: var(--panel-2); }
+.service-card.inactive { opacity: 0.55; }
+.service-mark--lg { width: 36px; height: 36px; border-radius: 9px; font-size: 15px; }
+.back-link { display: inline-block; margin-bottom: 10px; color: var(--fg-2); font-size: 12.5px; text-decoration: none; }
+.back-link:hover { color: var(--fg); }
+
 /* ---------- overview ---------- */
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; }
 .metric { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); padding: 15px 16px; }
