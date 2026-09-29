@@ -4,7 +4,7 @@
     <script>
       (function () {
         try {
-          var p = localStorage.getItem('auth-admin.theme') || 'system';
+    var p = localStorage.getItem('theme') || 'system';
           var d = p === 'dark' || (p === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
         } catch (e) {}

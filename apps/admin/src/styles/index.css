@@ -1,0 +1,5 @@
+/* 디자인 시스템 토큰 + Tailwind 매핑 → 이 앱의 스타일 순서로 로드한다. */
+@import "@bini59/design/src/base.css";
+@import "./style.css";
+/* AppShell 등 디자인 시스템 컴포넌트가 쓰는 Tailwind 클래스를 스캔한다. */
+@source "../../node_modules/@bini59/design/src";

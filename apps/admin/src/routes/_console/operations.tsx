@@ -1,9 +1,19 @@
-// apps/admin/src/sections/operations.tsx
-import type { AdminAudit, DeletionQueueItem } from '../api';
+import { createFileRoute } from '@tanstack/react-router';
+import { useAudit, useDeletionQueue } from '@/api/queries';
+import { SkeletonPage } from '@/components/skeleton-page';
 
-export function OperationsSection({ audit, queue }: { audit: AdminAudit[]; queue: DeletionQueueItem[] }) {
+export const Route = createFileRoute('/_console/operations')({ component: OperationsPage });
+
+function OperationsPage() {
+  const auditQuery = useAudit();
+  const queueQuery = useDeletionQueue();
+  if (auditQuery.isLoading || queueQuery.isLoading) return <SkeletonPage />;
+  const audit = auditQuery.data ?? [];
+  const queue = queueQuery.data ?? [];
+
   return (
     <>
+      {(auditQuery.isError || queueQuery.isError) && <p className="error" role="alert">운영 기록을 불러오지 못했습니다.</p>}
       <div className="page-head">
         <div>
           <h1>운영</h1>

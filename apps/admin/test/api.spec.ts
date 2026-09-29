@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { authApi } from './api';
+import { authApi } from '@/api';
 
 afterEach(() => {
   vi.unstubAllGlobals();

@@ -1,8 +1,7 @@
-// apps/admin/src/sections/overview.tsx
-import type { AdminOverview } from '../api';
-import { formatAdminCount, serviceStatusLabel } from '../view-model';
+import type { AdminOverview } from '@/api';
+import { formatAdminCount, serviceStatusLabel } from '@/utils/view-model';
 
-export function OverviewSection({ data }: { data: AdminOverview | null }) {
+export function OverviewView({ data }: { data: AdminOverview | null }) {
   const metrics = [
     { label: '사용자', value: formatAdminCount(data?.counts.users), hint: '전체 등록 인물' },
     { label: '서비스', value: formatAdminCount(data?.counts.clients), hint: 'auth에 등록된 앱 클라이언트' },

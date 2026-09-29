@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasMoreServiceMemberships, serviceMembershipMessage } from './service-memberships';
+import { hasMoreServiceMemberships, serviceMembershipMessage } from '@/utils/service-memberships';
 
 describe('service membership panel state', () => {
   it('covers loading, error, empty, and populated states', () => {

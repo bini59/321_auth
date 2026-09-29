@@ -1,5 +1,5 @@
 // 계정 포털/로그인 화면의 공통 셸. admin 콘솔(apps/admin/src)과 같은 디자인 언어를 쓴다.
-// 토큰은 apps/admin/src/theme.css, 컴포넌트 규칙은 apps/admin/src/style.css 에서 옮겨왔다.
+// 토큰은 디자인 시스템(@bini59/design, src/tokens/theme.css), 컴포넌트 규칙은 apps/admin/src/styles/style.css 에서 옮겨왔다.
 import type { Response } from 'express';
 
 const THEME_STORAGE_KEY = 'auth-client.theme';
@@ -161,7 +161,7 @@ export const LOGOUT_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill
 export const UPLOAD_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>`;
 
 /**
- * theme-toggle.tsx 와 같은 3단 세그먼트. 서버는 system 을 활성으로 그리고,
+ * @bini59/design 의 ThemeToggle 과 같은 3단 세그먼트. 서버는 system 을 활성으로 그리고,
  * THEME_TOGGLE_SCRIPT 가 저장된 값으로 aria-checked 를 다시 맞춘다.
  */
 export function themeToggle(): string {

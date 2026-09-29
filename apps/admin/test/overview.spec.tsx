@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { AdminOverview } from '../api';
-import { OverviewSection } from './overview';
+import type { AdminOverview } from '@/api';
+import { OverviewView } from '@/components/overview-view';
 
-describe('OverviewSection', () => {
+describe('OverviewView', () => {
   it('renders all six overview metrics from the nested API contract', () => {
     const data: AdminOverview = {
       counts: {
@@ -17,7 +17,7 @@ describe('OverviewSection', () => {
       services: { api: 'up', postgres: 'up', redis: 'up' },
     };
 
-    const html = renderToStaticMarkup(<OverviewSection data={data} />);
+    const html = renderToStaticMarkup(<OverviewView data={data} />);
 
     for (const label of ['사용자', '서비스', '활성 멤버십', '정지 멤버십', '활성 세션', '탈퇴 요청']) {
       expect(html).toContain(label);
@@ -39,7 +39,7 @@ describe('OverviewSection', () => {
       services: { api: 'up', postgres: 'down', redis: 'down' },
     };
 
-    const html = renderToStaticMarkup(<OverviewSection data={data} />);
+    const html = renderToStaticMarkup(<OverviewView data={data} />);
 
     expect((html.match(/확인 필요/g) ?? []).length).toBeGreaterThanOrEqual(6);
     expect(html).not.toContain('badge--danger');

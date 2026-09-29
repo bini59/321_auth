@@ -1,4 +1,4 @@
-// apps/admin/src/toast.tsx — window.confirm / alert 대체용 토스트 + 확인 다이얼로그
+// apps/admin/src/components/toast.tsx — window.confirm / alert 대체용 토스트 + 확인 다이얼로그
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { CloseIcon } from './icons';
 
