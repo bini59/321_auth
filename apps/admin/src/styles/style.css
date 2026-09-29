@@ -162,23 +162,20 @@ table.data tr.inactive { opacity: 0.55; }
 
 /* ---------- users ---------- */
 .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-.users-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
-.users-layout.with-detail { grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); }
-@media (max-width: 900px) { .users-layout.with-detail { grid-template-columns: minmax(0, 1fr); } }
-.user-detail { position: sticky; top: 66px; max-height: calc(100vh - 86px); overflow: auto; animation: slideIn 0.2s ease both; }
-.detail-head { display: flex; align-items: flex-start; gap: 10px; padding: 16px; border-bottom: 1px solid var(--border); }
-.detail-name { font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; }
-.detail-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
-.detail-section:last-child { border-bottom: 0; }
 .section-label { font-size: 11px; letter-spacing: 0.08em; color: var(--fg-3); margin-bottom: 9px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {
   display: flex; align-items: center; gap: 6px; padding: 4px 9px; border: 1px solid var(--border);
   border-radius: 20px; background: var(--bg); font-size: 12px;
 }
-.membership-row { display: grid; grid-template-columns: 1fr 92px 92px; gap: 7px; align-items: center; }
-.membership-row + .membership-row { margin-top: 8px; }
-.membership-row .select { height: 28px; font-size: 12px; padding: 0 6px; border-color: var(--border); }
+.membership-card { display: grid; gap: 12px; padding: 16px; }
+.membership-card.suspended { border-color: var(--danger, var(--border-strong)); }
+.membership-card-head { display: flex; align-items: center; gap: 9px; min-width: 0; color: inherit; text-decoration: none; }
+.membership-card-head .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.go-indicator { color: var(--fg-3); transition: transform 0.15s, color 0.15s; }
+.membership-card-head:hover .go-indicator { color: var(--fg); transform: translateX(3px); }
+.membership-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.membership-fields .select { height: 28px; font-size: 12px; padding: 0 6px; }
 
 /* ---------- services ---------- */
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

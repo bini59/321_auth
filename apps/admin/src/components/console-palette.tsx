@@ -22,7 +22,7 @@ export function ConsolePalette({ setTheme, onClose }: { setTheme: (next: ThemePr
       label: `${user.name || user.userId} 열기`,
       group: '사용자',
       badge: (user.name || '?').slice(0, 2),
-      run: () => navigate({ to: '/users', search: { id: user.userId } }),
+      run: () => navigate({ to: '/users/$userId', params: { userId: user.userId } }),
     })),
   ], [users.data]);
 

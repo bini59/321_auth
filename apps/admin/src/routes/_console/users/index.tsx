@@ -1,37 +1,32 @@
 import { useMemo } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
-import { useUser, useUsers } from '@/api/queries';
+import { useUsers } from '@/api/queries';
 import { Avatar } from '@/components/avatar';
 import { SearchIcon } from '@/components/icons';
 import { UsersSkeleton } from '@/components/skeleton';
-import { UserDetail } from '@/components/user-detail';
 
 const SORTS = ['name', 'memberships', 'created'] as const;
 type SortKey = (typeof SORTS)[number];
 
-// 검색·정렬·선택된 사용자는 URL 이 들고 있어서 새로고침·링크 공유에도 유지된다.
+// 검색·정렬은 URL 이 들고 있어서 새로고침·링크 공유에도 유지된다. 사용자 상세는 /users/$userId.
 export const Route = createFileRoute('/_console/users/')({
-  validateSearch: (search: Record<string, unknown>): { q?: string; sort?: SortKey; dir?: 'asc' | 'desc'; id?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { q?: string; sort?: SortKey; dir?: 'asc' | 'desc' } => ({
     q: typeof search.q === 'string' && search.q ? search.q : undefined,
     sort: SORTS.find((key) => key === search.sort),
     dir: search.dir === 'asc' || search.dir === 'desc' ? search.dir : undefined,
-    id: typeof search.id === 'string' && search.id ? search.id : undefined,
   }),
   component: UsersPage,
 });
 
 function UsersPage() {
-  const { q: search = '', sort = 'created', dir = 'desc', id: selectedId = null } = Route.useSearch();
+  const { q: search = '', sort = 'created', dir = 'desc' } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const setSearch = (patch: { q?: string; sort?: SortKey; dir?: 'asc' | 'desc'; id?: string }, replace = true) =>
-    navigate({ search: (prev) => ({ ...prev, ...patch }), replace });
+  const setSearch = (patch: { q?: string; sort?: SortKey; dir?: 'asc' | 'desc' }) =>
+    navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
   const onSearch = (value: string) => setSearch({ q: value || undefined });
-  const onSelect = (userId: string | null) => setSearch({ id: userId ?? undefined }, false);
   const usersQuery = useUsers(search);
-  const detail = useUser(selectedId);
 
   const users = usersQuery.data ?? [];
-  const selected = selectedId ? (detail.data ?? null) : null;
   const loading = usersQuery.isPlaceholderData;
 
   const sorted = useMemo(() => {
@@ -75,8 +70,7 @@ function UsersPage() {
         </div>
       </div>
 
-      <div className={selected ? 'users-layout with-detail' : 'users-layout'}>
-        <div className="card">
+      <div className="card">
           <div className="table-wrap">
             <table className="data">
               <thead>
@@ -91,8 +85,8 @@ function UsersPage() {
                 {sorted.map((user) => (
                   <tr
                     key={user.userId}
-                    className={selected?.userId === user.userId ? 'clickable selected' : 'clickable'}
-                    onClick={() => onSelect(user.userId)}
+                    className="clickable"
+                    onClick={() => void navigate({ to: '/users/$userId', params: { userId: user.userId } })}
                   >
                     <td>
                       <div className="cell-main">
@@ -120,9 +114,6 @@ function UsersPage() {
               {search && <button className="btn" onClick={() => onSearch('')}>검색 초기화</button>}
             </div>
           )}
-        </div>
-
-        {selected && <UserDetail selected={selected} onClose={() => onSelect(null)} />}
       </div>
     </>
   );

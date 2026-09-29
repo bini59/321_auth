@@ -17,6 +17,7 @@ import { Route as ConsoleSettingsRouteImport } from './routes/_console/settings'
 import { Route as ConsoleAppsIndexRouteImport } from './routes/_console/apps/index'
 import { Route as ConsoleAppsClientIdRouteImport } from './routes/_console/apps/$clientId'
 import { Route as ConsoleUsersIndexRouteImport } from './routes/_console/users/index'
+import { Route as ConsoleUsersUserIdRouteImport } from './routes/_console/users/$userId'
 
 const ConsoleRoute = ConsoleRouteImport.update({
   id: '/_console',
@@ -57,6 +58,11 @@ const ConsoleUsersIndexRoute = ConsoleUsersIndexRouteImport.update({
   path: '/users/',
   getParentRoute: () => ConsoleRoute,
 } as any)
+const ConsoleUsersUserIdRoute = ConsoleUsersUserIdRouteImport.update({
+  id: '/users/$userId',
+  path: '/users/$userId',
+  getParentRoute: () => ConsoleRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ConsoleIndexRoute
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/operations': typeof ConsoleOperationsRoute
   '/settings': typeof ConsoleSettingsRoute
   '/apps/$clientId': typeof ConsoleAppsClientIdRoute
+  '/users/$userId': typeof ConsoleUsersUserIdRoute
   '/apps/': typeof ConsoleAppsIndexRoute
   '/users/': typeof ConsoleUsersIndexRoute
 }
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/settings': typeof ConsoleSettingsRoute
   '/': typeof ConsoleIndexRoute
   '/apps/$clientId': typeof ConsoleAppsClientIdRoute
+  '/users/$userId': typeof ConsoleUsersUserIdRoute
   '/apps': typeof ConsoleAppsIndexRoute
   '/users': typeof ConsoleUsersIndexRoute
 }
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/_console/settings': typeof ConsoleSettingsRoute
   '/_console/': typeof ConsoleIndexRoute
   '/_console/apps/$clientId': typeof ConsoleAppsClientIdRoute
+  '/_console/users/$userId': typeof ConsoleUsersUserIdRoute
   '/_console/apps/': typeof ConsoleAppsIndexRoute
   '/_console/users/': typeof ConsoleUsersIndexRoute
 }
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
     | '/operations'
     | '/settings'
     | '/apps/$clientId'
+    | '/users/$userId'
     | '/apps/'
     | '/users/'
   fileRoutesByTo: FileRoutesByTo
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/'
     | '/apps/$clientId'
+    | '/users/$userId'
     | '/apps'
     | '/users'
   id:
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
     | '/_console/settings'
     | '/_console/'
     | '/_console/apps/$clientId'
+    | '/_console/users/$userId'
     | '/_console/apps/'
     | '/_console/users/'
   fileRoutesById: FileRoutesById
@@ -181,6 +193,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConsoleUsersIndexRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    '/_console/users/$userId': {
+      id: '/_console/users/$userId'
+      path: '/users/$userId'
+      fullPath: '/users/$userId'
+      preLoaderRoute: typeof ConsoleUsersUserIdRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
   }
 }
 
@@ -189,6 +208,7 @@ interface ConsoleRouteChildren {
   ConsoleSettingsRoute: typeof ConsoleSettingsRoute
   ConsoleIndexRoute: typeof ConsoleIndexRoute
   ConsoleAppsClientIdRoute: typeof ConsoleAppsClientIdRoute
+  ConsoleUsersUserIdRoute: typeof ConsoleUsersUserIdRoute
   ConsoleAppsIndexRoute: typeof ConsoleAppsIndexRoute
   ConsoleUsersIndexRoute: typeof ConsoleUsersIndexRoute
 }
@@ -198,6 +218,7 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleSettingsRoute: ConsoleSettingsRoute,
   ConsoleIndexRoute: ConsoleIndexRoute,
   ConsoleAppsClientIdRoute: ConsoleAppsClientIdRoute,
+  ConsoleUsersUserIdRoute: ConsoleUsersUserIdRoute,
   ConsoleAppsIndexRoute: ConsoleAppsIndexRoute,
   ConsoleUsersIndexRoute: ConsoleUsersIndexRoute,
 }
