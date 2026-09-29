@@ -1,23 +1,21 @@
-import { PROVIDERS, type ProviderName } from '../config/env';
+import { ENV, PROVIDERS, type ProviderName } from '../config/env';
 import { providerButton, providerButtonCss } from './provider-brand';
 import { THEME_TOGGLE_SCRIPT, escapeHtml, layout, loginShell, loginShellCss } from './portal-ui';
 
+// 모든 서비스가 파비콘·헤더에 쓰는 공용 로고. img-src 가 이미 허용한 static 출처라 CSP 를 건드리지 않는다.
+const SHARED_LOGO = `${ENV.staticOrigin}/logo/logo-128.png`;
+
 export function renderLoginPage(
-  client: { name: string; logo_url: string | null; theme_color: string | null },
+  client: { name: string; logo_url: string | null },
   clientId: string,
   returnTo: string,
   error?: string,
   nonce = '',
 ) {
-  // theme_color 는 운영자 입력이라 인라인 style 에 넣기 전에 hex 만 남긴다.
-  const themeColor = client.theme_color && /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(client.theme_color.trim())
-    ? client.theme_color.trim()
-    : 'var(--accent)';
-  const mark = client.logo_url
-    ? `<span class="lmark" aria-hidden="true"><img src="${escapeHtml(client.logo_url)}" alt=""></span>`
-    : `<span class="lmark" style="background:var(--panel-2);border:1px solid var(--border);color:var(--fg-2)" aria-hidden="true">${escapeHtml((client.name || '?').slice(0, 1).toUpperCase())}</span>`;
+  // 서비스 전용 logo_url 이 있으면 그것을, 없으면 공용 로고를 쓴다.
+  const mark = `<span class="lmark" aria-hidden="true"><img src="${escapeHtml(client.logo_url || SHARED_LOGO)}" alt=""></span>`;
   const err = error
-    ? `<div style="padding:9px 12px;border:1px solid var(--danger);border-radius:8px;background:var(--danger-soft);color:var(--danger);font-size:13px;margin:0 0 16px">로그인할 수 없습니다 (${escapeHtml(error)})</div>`
+    ? `<div class="alert alert--error" role="alert">로그인할 수 없습니다 (${escapeHtml(error)})</div>`
     : '';
   const rt = encodeURIComponent(returnTo);
   const providerButtons = (Object.keys(PROVIDERS) as ProviderName[])
@@ -36,13 +34,10 @@ export function renderLoginPage(
   }
 
   const body = loginShell({
-    // client 색은 좌측 패널 상단 경계 한 줄에만 쓴다.
-    panelStyle: `border-top:2px solid ${themeColor}`,
     mark,
     name: client.name,
-    host,
     footer: `<span class="lrow"><span class="dot dot--ok" aria-hidden="true"></span><span class="mono">auth.bini59.dev</span></span>` +
-      `<span class="mono ltrunc">→ ${escapeHtml(returnTo)}</span>`,
+      `<span class="mono ltrunc" title="${escapeHtml(returnTo)}">→ ${escapeHtml(host || returnTo)}</span>`,
     notice: 'bini59.dev 계정으로 계속합니다.',
     block: err,
     buttons: providerButtons,

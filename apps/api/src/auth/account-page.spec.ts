@@ -181,11 +181,11 @@ describe('renderAccountLoginPage', () => {
     expect(html).toContain('aria-checked');
   });
 
-  it('uses the split shell instead of a floating card', () => {
+  it('uses the centered login card instead of the old split shell', () => {
     const html = renderAccountLoginPage();
-    expect(html).toContain('class="lshell"');
-    expect(html).toContain('class="lpanel"');
-    expect(html).toContain('class="lmain"');
+    expect(html).toContain('class="lcard"');
+    expect(html).toContain('<h1 class="ltitle">bini59.dev 계정에 로그인</h1>');
+    expect(html).not.toContain('class="lpanel"');
     expect(html).not.toContain('class="solo-card"');
     expect(html).not.toContain('class="centered"');
   });
