@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useUser, useUsers } from '@/api/queries';
 import { Avatar } from '@/components/avatar';
 import { SearchIcon } from '@/components/icons';
-import { SkeletonPage } from '@/components/skeleton-page';
+import { UsersSkeleton } from '@/components/skeleton';
 import { UserDetail } from '@/components/user-detail';
 
 const SORTS = ['name', 'memberships', 'created'] as const;
@@ -49,7 +49,7 @@ function UsersPage() {
   };
   const mark = (key: SortKey) => (sort === key ? (dir === 'desc' ? ' ↓' : ' ↑') : '');
 
-  if (usersQuery.isLoading) return <SkeletonPage />;
+  if (usersQuery.isLoading) return <UsersSkeleton />;
 
   return (
     <>

@@ -3,12 +3,14 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useServices } from '@/api/queries';
 import { PlusIcon } from '@/components/icons';
 import { ServiceForm } from '@/components/service-form';
+import { ServicesSkeleton } from '@/components/skeleton';
 
 export const Route = createFileRoute('/_console/apps/')({ component: ServicesPage });
 
 function ServicesPage() {
   const [formOpen, setFormOpen] = useState(false);
-  const { data: services = [] } = useServices();
+  const { data: services = [], isLoading } = useServices();
+  if (isLoading) return <ServicesSkeleton />;
 
   return (
     <>

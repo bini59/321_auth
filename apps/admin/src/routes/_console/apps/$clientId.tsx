@@ -3,6 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { AdminService } from '@/api';
 import { useRotateServiceSecret, useServiceMemberships, useServices, useSetServiceActive, useUpdateService } from '@/api/queries';
 import { Avatar } from '@/components/avatar';
+import { Skeleton, ServiceDetailSkeleton, TableRows } from '@/components/skeleton';
 import { useToast } from '@/components/toast';
 import { serviceMembershipMessage } from '@/utils/service-memberships';
 
@@ -12,11 +13,12 @@ function ServiceDetailPage() {
   const { clientId } = Route.useParams();
   const { data: services, isLoading } = useServices();
   const service = services?.find((s) => s.client_id === clientId);
+  if (isLoading) return <ServiceDetailSkeleton />;
 
   return (
     <>
       <Link to="/apps" className="back-link">← 서비스 목록</Link>
-      {service ? <ServiceDetail key={service.client_id} service={service} /> : <p className="dim">{isLoading ? '불러오는 중입니다.' : '서비스를 찾을 수 없습니다.'}</p>}
+      {service ? <ServiceDetail key={service.client_id} service={service} /> : <p className="dim">서비스를 찾을 수 없습니다.</p>}
       <ServiceMembers clientId={clientId} />
     </>
   );
@@ -83,10 +85,12 @@ function ServiceDetail({ service }: { service: AdminService }) {
         <div className="cell-main">
           <div className="service-mark service-mark--lg" style={{ background: service.theme_color || 'var(--fg-3)' }}>{service.name.slice(0, 1)}</div>
           <div>
-            <h1>{service.name}</h1>
-            <p className="mono">{service.client_id}</p>
+            <div className="title-row">
+              <h1>{service.name}</h1>
+              <span className={service.is_active ? 'badge badge--ok' : 'badge'}>{service.is_active ? '활성' : '비활성'}</span>
+            </div>
+            <p className="mono dim" style={{ fontSize: 12 }}>{service.client_id}</p>
           </div>
-          <span className={service.is_active ? 'badge badge--ok' : 'badge'}>{service.is_active ? '활성' : '비활성'}</span>
         </div>
         <div className="actions">
           <button className="btn" onClick={() => void rotate()}>secret 재발급</button>
@@ -132,11 +136,12 @@ function ServiceDetail({ service }: { service: AdminService }) {
 function ServiceMembers({ clientId }: { clientId: string }) {
   const { data, status, hasNextPage, fetchNextPage, isFetchingNextPage } = useServiceMemberships(clientId);
   const members = data?.pages.flat() ?? [];
-  const message = serviceMembershipMessage(status === 'pending' ? 'loading' : status === 'error' ? 'error' : 'ready', members.length);
+  const message = status === 'pending' ? null : serviceMembershipMessage(status === 'error' ? 'error' : 'ready', members.length);
 
   return (
     <div className="card">
-      <div className="card-head">가입한 사용자 <span className="dim">{members.length}{hasNextPage ? '+' : ''}명</span></div>
+      <div className="card-head">가입한 사용자 {status === 'pending' ? <Skeleton w={28} h={11} style={{ display: 'inline-block' }} /> : <span className="dim">{members.length}{hasNextPage ? '+' : ''}명</span>}</div>
+      {status === 'pending' && <TableRows rows={4} cols={3} />}
       {members.length > 0 && (
         <div className="table-wrap">
           <table className="data">

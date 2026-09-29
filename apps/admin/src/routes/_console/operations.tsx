@@ -1,13 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useAudit, useDeletionQueue } from '@/api/queries';
-import { SkeletonPage } from '@/components/skeleton-page';
+import { OperationsSkeleton } from '@/components/skeleton';
 
 export const Route = createFileRoute('/_console/operations')({ component: OperationsPage });
 
 function OperationsPage() {
   const auditQuery = useAudit();
   const queueQuery = useDeletionQueue();
-  if (auditQuery.isLoading || queueQuery.isLoading) return <SkeletonPage />;
+  if (auditQuery.isLoading || queueQuery.isLoading) return <OperationsSkeleton />;
   const audit = auditQuery.data ?? [];
   const queue = queueQuery.data ?? [];
 
