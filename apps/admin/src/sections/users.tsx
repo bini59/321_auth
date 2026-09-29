@@ -1,7 +1,10 @@
 // apps/admin/src/sections/users.tsx
 import { useMemo, useState, type CSSProperties } from 'react';
-import type { AdminMembership, AdminUser, AdminUserDetail } from '@/api';
+import type { AdminMembership } from '@/api';
+import { useRevokeSessions, useUpdateMembership, useUser, useUsers } from '@/api/queries';
 import { CloseIcon, SearchIcon } from '@/components/icons';
+import { useToast } from '@/components/toast';
+import { SkeletonPage } from '@/layout/skeleton-page';
 
 type SortKey = 'name' | 'memberships' | 'created';
 const initials = (name: string | null) => (name || '?').slice(0, 2);
@@ -33,21 +36,23 @@ function safeAvatarUrl(value: string | null) {
   }
 }
 
-export function UsersSection({
-  users, selected, search, loading, onSearch, onOpen, onCloseDetail, onMembership, onRevoke,
-}: {
-  users: AdminUser[];
-  selected: AdminUserDetail | null;
+export function UsersSection({ search, onSearch, selectedId, onSelect }: {
   search: string;
-  loading: boolean;
   onSearch: (value: string) => void;
-  onOpen: (user: AdminUser) => void;
-  onCloseDetail: () => void;
-  onMembership: (membership: AdminMembership, update: { role?: string; status?: string }) => void;
-  onRevoke: () => void;
+  selectedId: string | null;
+  onSelect: (userId: string | null) => void;
 }) {
+  const { toast, confirm } = useToast();
+  const usersQuery = useUsers(search);
+  const detail = useUser(selectedId);
+  const updateMembership = useUpdateMembership();
+  const revokeSessions = useRevokeSessions();
   const [sort, setSort] = useState<SortKey>('created');
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
+
+  const users = usersQuery.data ?? [];
+  const selected = selectedId ? (detail.data ?? null) : null;
+  const loading = usersQuery.isPlaceholderData;
 
   const sorted = useMemo(() => {
     const sign = dir === 'asc' ? 1 : -1;
@@ -64,8 +69,35 @@ export function UsersSection({
   };
   const mark = (key: SortKey) => (sort === key ? (dir === 'desc' ? ' ↓' : ' ↑') : '');
 
+  const onMembership = async (membership: AdminMembership, update: { role?: string; status?: string }) => {
+    if (!selected) return;
+    const ok = await confirm(`${membership.clientName} 회원 자격을 변경할까요?`, { confirmLabel: '변경' });
+    if (!ok) return;
+    try {
+      await updateMembership.mutateAsync({ userId: selected.userId, clientId: membership.clientId, update });
+      toast('회원 자격을 변경했습니다.');
+    } catch {
+      toast('멤버십 변경에 실패했습니다.', 'danger');
+    }
+  };
+
+  const onRevoke = async () => {
+    if (!selected) return;
+    const ok = await confirm(`${selected.name || selected.userId}의 모든 세션을 폐기할까요?`, { confirmLabel: '폐기', tone: 'danger' });
+    if (!ok) return;
+    try {
+      await revokeSessions.mutateAsync(selected.userId);
+      toast('모든 세션을 폐기했습니다.', 'danger');
+    } catch {
+      toast('세션 폐기에 실패했습니다.', 'danger');
+    }
+  };
+
+  if (usersQuery.isLoading) return <SkeletonPage />;
+
   return (
     <>
+      {usersQuery.isError && <p className="error" role="alert">사용자 목록을 불러오지 못했습니다.</p>}
       <div className="page-head">
         <div>
           <h1>사용자</h1>
@@ -104,7 +136,7 @@ export function UsersSection({
                   <tr
                     key={user.userId}
                     className={selected?.userId === user.userId ? 'clickable selected' : 'clickable'}
-                    onClick={() => onOpen(user)}
+                    onClick={() => onSelect(user.userId)}
                   >
                     <td>
                       <div className="cell-main">
@@ -143,7 +175,7 @@ export function UsersSection({
                 <div className="muted" style={{ fontSize: 12 }}>{selected.email || '이메일 없음'}</div>
                 <div className="dim mono" style={{ fontSize: 11, marginTop: 3 }}>{selected.userId}</div>
               </div>
-              <button className="icon-btn" onClick={onCloseDetail} aria-label="닫기"><CloseIcon /></button>
+              <button className="icon-btn" onClick={() => onSelect(null)} aria-label="닫기"><CloseIcon /></button>
             </div>
 
             <div className="detail-section">

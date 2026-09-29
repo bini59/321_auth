@@ -1,8 +1,21 @@
 // apps/admin/src/sections/overview.tsx
 import type { AdminOverview } from '@/api';
+import { useOverview } from '@/api/queries';
+import { SkeletonPage } from '@/layout/skeleton-page';
 import { formatAdminCount, serviceStatusLabel } from '@/utils/view-model';
 
-export function OverviewSection({ data }: { data: AdminOverview | null }) {
+export function OverviewSection() {
+  const { data, isLoading, isError } = useOverview();
+  if (isLoading) return <SkeletonPage />;
+  return (
+    <>
+      {isError && <p className="error" role="alert">운영 현황을 불러오지 못했습니다.</p>}
+      <OverviewView data={data ?? null} />
+    </>
+  );
+}
+
+export function OverviewView({ data }: { data: AdminOverview | null }) {
   const metrics = [
     { label: '사용자', value: formatAdminCount(data?.counts.users), hint: '전체 등록 인물' },
     { label: '서비스', value: formatAdminCount(data?.counts.clients), hint: 'auth에 등록된 앱 클라이언트' },

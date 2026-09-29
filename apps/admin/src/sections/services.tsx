@@ -1,42 +1,36 @@
 // apps/admin/src/sections/services.tsx
 import { useState, type FormEvent } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { authApi, type AdminService } from '@/api';
+import type { AdminService } from '@/api';
+import { useCreateService, useRotateServiceSecret, useServices, useSetServiceActive, useUpdateService } from '@/api/queries';
 import { PlusIcon } from '@/components/icons';
 import { useToast } from '@/components/toast';
 
 const EMPTY_FORM = { client_id: '', name: '', allowed_origins: '', default_redirect: '', auto_provision: false, onboarding_path: '' };
 
-export function ServicesSection({ csrfToken }: { csrfToken: string }) {
+export function ServicesSection() {
   const { toast, confirm } = useToast();
-  const qc = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const { data: services = [] } = useQuery({
-    queryKey: ['services'],
-    queryFn: () => authApi.services(),
-    meta: { error: 'Service 목록을 불러오지 못했습니다.' },
-  });
-  const load = () => qc.invalidateQueries({ queryKey: ['services'] });
+  const { data: services = [] } = useServices();
+  const createService = useCreateService();
+  const updateService = useUpdateService();
+  const setServiceActive = useSetServiceActive();
+  const rotateServiceSecret = useRotateServiceSecret();
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
     try {
-      const result = await authApi.createService(
-        {
-          service_id: form.client_id,
-          name: form.name,
-          allowed_origins: form.allowed_origins.split(',').map((value) => value.trim()),
-          default_redirect: form.default_redirect,
-          auto_provision: form.auto_provision,
-          onboarding_path: form.onboarding_path || null,
-        },
-        csrfToken,
-      );
+      const result = await createService.mutateAsync({
+        service_id: form.client_id,
+        name: form.name,
+        allowed_origins: form.allowed_origins.split(',').map((value) => value.trim()),
+        default_redirect: form.default_redirect,
+        auto_provision: form.auto_provision,
+        onboarding_path: form.onboarding_path || null,
+      });
       setForm(EMPTY_FORM);
       setFormOpen(false);
-      await load();
       toast(`생성됨. 새 secret: ${result.secret}`);
     } catch {
       toast('생성에 실패했습니다. 입력값을 확인하세요.', 'danger');
@@ -45,18 +39,16 @@ export function ServicesSection({ csrfToken }: { csrfToken: string }) {
 
   const patch = async (service: AdminService, update: Partial<AdminService>) => {
     try {
-      await authApi.updateService(
-        service.client_id,
-        {
+      await updateService.mutateAsync({
+        id: service.client_id,
+        body: {
           name: update.name ?? service.name,
           allowed_origins: update.allowed_origins ?? service.allowed_origins,
           default_redirect: update.default_redirect ?? service.default_redirect,
           auto_provision: update.auto_provision ?? service.auto_provision,
           onboarding_path: update.onboarding_path ?? service.onboarding_path,
         },
-        csrfToken,
-      );
-      await load();
+      });
     } catch {
       toast('변경에 실패했습니다.', 'danger');
     }
@@ -68,15 +60,14 @@ export function ServicesSection({ csrfToken }: { csrfToken: string }) {
       { confirmLabel: service.is_active ? '비활성화' : '활성화', tone: service.is_active ? 'danger' : 'ok' },
     );
     if (!ok) return;
-    await authApi.setServiceActive(service.client_id, !service.is_active, csrfToken);
-    await load();
+    await setServiceActive.mutateAsync({ id: service.client_id, active: !service.is_active });
     toast(`${service.name}을(를) ${service.is_active ? '비활성화' : '활성화'}했습니다.`, service.is_active ? 'warn' : 'ok');
   };
 
   const rotate = async (service: AdminService) => {
     const ok = await confirm(`${service.client_id}의 secret을 재발급할까요? 기존 secret은 즉시 무효화됩니다.`, { confirmLabel: '재발급', tone: 'danger' });
     if (!ok) return;
-    const result = await authApi.rotateServiceSecret(service.client_id, csrfToken);
+    const result = await rotateServiceSecret.mutateAsync(service.client_id);
     await navigator.clipboard?.writeText(result.secret).catch(() => undefined);
     toast(`${service.client_id} 새 secret을 클립보드에 복사했습니다.`);
   };
@@ -126,7 +117,7 @@ export function ServicesSection({ csrfToken }: { csrfToken: string }) {
               </label>
               <span className="spacer" />
               <button type="button" className="btn" onClick={() => setFormOpen(false)}>취소</button>
-              <button type="submit" className="btn btn--accent" disabled={!csrfToken}>등록</button>
+              <button type="submit" className="btn btn--accent">등록</button>
             </div>
           </div>
         </form>
