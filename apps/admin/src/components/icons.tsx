@@ -1,4 +1,4 @@
-// apps/admin/src/icons.tsx — 콘솔에서 쓰는 아이콘 전부. stroke=currentColor.
+// apps/admin/src/components/icons.tsx — 콘솔에서 쓰는 아이콘 전부. stroke=currentColor.
 type P = { size?: number };
 const base = (size = 15) => ({
   width: size, height: size, viewBox: '0 0 24 24', fill: 'none',

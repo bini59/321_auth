@@ -1,5 +1,5 @@
 // 계정 포털/로그인 화면의 공통 셸. admin 콘솔(apps/admin/src)과 같은 디자인 언어를 쓴다.
-// 토큰은 apps/admin/src/theme.css, 컴포넌트 규칙은 apps/admin/src/style.css 에서 옮겨왔다.
+// 토큰은 apps/admin/src/styles/theme.css, 컴포넌트 규칙은 apps/admin/src/styles/style.css 에서 옮겨왔다.
 import type { Response } from 'express';
 
 const THEME_STORAGE_KEY = 'auth-client.theme';

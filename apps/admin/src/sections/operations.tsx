@@ -1,5 +1,5 @@
 // apps/admin/src/sections/operations.tsx
-import type { AdminAudit, DeletionQueueItem } from '../api';
+import type { AdminAudit, DeletionQueueItem } from '@/api';
 
 export function OperationsSection({ audit, queue }: { audit: AdminAudit[]; queue: DeletionQueueItem[] }) {
   return (

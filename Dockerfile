@@ -15,6 +15,7 @@ COPY apps/api/src apps/api/src
 RUN pnpm --filter @321-auth/api build
 COPY apps/admin/tsconfig*.json apps/admin/vite.config.ts apps/admin/index.html apps/admin/
 COPY apps/admin/src apps/admin/src
+COPY apps/admin/public apps/admin/public
 COPY packages/contracts/src packages/contracts/src
 RUN pnpm --filter @321-auth/admin build
 # 마이그레이션 SQL도 dist로 복사 (런타임에서 __dirname 기준으로 읽음)

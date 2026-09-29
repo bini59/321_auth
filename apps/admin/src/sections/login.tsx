@@ -1,7 +1,7 @@
 // apps/admin/src/sections/login.tsx
 import { useEffect, useState } from 'react';
-import { authApi } from '../api';
-import { ThemeToggle } from '../theme-toggle';
+import { authApi } from '@/api';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function LoginPage({ brandName = 'Auth Admin', host = 'bini59.dev' }: { brandName?: string; host?: string }) {
   const [error, setError] = useState('');

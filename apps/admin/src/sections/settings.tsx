@@ -1,5 +1,5 @@
 // apps/admin/src/sections/settings.tsx
-import { useTheme, type ThemePreference } from '../use-theme';
+import { useTheme, type ThemePreference } from '@/hooks/use-theme';
 
 const PREVIEW: Record<ThemePreference, React.JSX.Element> = {
   light: (

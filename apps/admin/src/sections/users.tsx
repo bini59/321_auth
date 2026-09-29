@@ -1,7 +1,7 @@
 // apps/admin/src/sections/users.tsx
 import { useMemo, useState, type CSSProperties } from 'react';
-import type { AdminMembership, AdminUser, AdminUserDetail } from '../api';
-import { CloseIcon, SearchIcon } from '../icons';
+import type { AdminMembership, AdminUser, AdminUserDetail } from '@/api';
+import { CloseIcon, SearchIcon } from '@/components/icons';
 
 type SortKey = 'name' | 'memberships' | 'created';
 const initials = (name: string | null) => (name || '?').slice(0, 2);

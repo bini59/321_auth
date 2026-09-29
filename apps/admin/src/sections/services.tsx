@@ -1,19 +1,24 @@
 // apps/admin/src/sections/services.tsx
-import { useEffect, useState, type FormEvent } from 'react';
-import { authApi, type AdminService } from '../api';
-import { PlusIcon } from '../icons';
-import { useToast } from '../toast';
+import { useState, type FormEvent } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { authApi, type AdminService } from '@/api';
+import { PlusIcon } from '@/components/icons';
+import { useToast } from '@/components/toast';
 
 const EMPTY_FORM = { client_id: '', name: '', allowed_origins: '', default_redirect: '', auto_provision: false, onboarding_path: '' };
 
 export function ServicesSection({ csrfToken }: { csrfToken: string }) {
   const { toast, confirm } = useToast();
-  const [services, setServices] = useState<AdminService[]>([]);
+  const qc = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const load = () => authApi.services().then(setServices).catch(() => toast('Service 목록을 불러오지 못했습니다.', 'danger'));
-  useEffect(() => { void load(); }, []);
+  const { data: services = [] } = useQuery({
+    queryKey: ['services'],
+    queryFn: () => authApi.services(),
+    meta: { error: 'Service 목록을 불러오지 못했습니다.' },
+  });
+  const load = () => qc.invalidateQueries({ queryKey: ['services'] });
 
   const create = async (event: FormEvent) => {
     event.preventDefault();

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { AdminOverview } from '../api';
-import { OverviewSection } from './overview';
+import type { AdminOverview } from '@/api';
+import { OverviewSection } from '@/sections/overview';
 
 describe('OverviewSection', () => {
   it('renders all six overview metrics from the nested API contract', () => {

@@ -1,4 +1,4 @@
-// apps/admin/src/command-palette.tsx — ⌘K
+// apps/admin/src/components/command-palette.tsx — ⌘K
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SearchIcon } from './icons';
 

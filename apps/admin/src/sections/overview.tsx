@@ -1,6 +1,6 @@
 // apps/admin/src/sections/overview.tsx
-import type { AdminOverview } from '../api';
-import { formatAdminCount, serviceStatusLabel } from '../view-model';
+import type { AdminOverview } from '@/api';
+import { formatAdminCount, serviceStatusLabel } from '@/utils/view-model';
 
 export function OverviewSection({ data }: { data: AdminOverview | null }) {
   const metrics = [

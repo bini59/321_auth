@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAdminCount, serviceStatusLabel } from './view-model';
+import { formatAdminCount, serviceStatusLabel } from '@/utils/view-model';
 
 describe('Admin dashboard view model', () => {
   it('formats real and unavailable counts without exposing raw null values', () => {

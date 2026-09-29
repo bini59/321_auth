@@ -1,5 +1,5 @@
-// apps/admin/src/theme-toggle.tsx
-import { useTheme, type ThemePreference } from './use-theme';
+// apps/admin/src/components/theme-toggle.tsx
+import { useTheme, type ThemePreference } from '@/hooks/use-theme';
 
 const seg = (on: boolean): React.CSSProperties => ({
   flex: 1,

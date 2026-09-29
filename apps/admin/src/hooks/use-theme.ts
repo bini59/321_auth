@@ -1,4 +1,4 @@
-// apps/admin/src/use-theme.ts
+// apps/admin/src/hooks/use-theme.ts
 import { useCallback, useEffect, useState } from 'react';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
