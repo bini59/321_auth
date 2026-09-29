@@ -1,4 +1,5 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
+import { hasMoreServiceMemberships, SERVICE_MEMBERSHIP_PAGE_SIZE } from '@/utils/service-memberships';
 import { authApi } from './index';
 
 // 서버가 호출할 때마다 admin_csrf 쿠키를 새로 발급하므로 페이지당 한 번만 조회한다.
@@ -16,6 +17,12 @@ export const useOverview = () => useQuery({ queryKey: ['overview'], queryFn: () 
 export const useAudit = () => useQuery({ queryKey: ['audit'], queryFn: () => authApi.audit() });
 export const useDeletionQueue = () => useQuery({ queryKey: ['deletion-queue'], queryFn: () => authApi.deletionQueue() });
 export const useServices = () => useQuery({ queryKey: SERVICES, queryFn: () => authApi.services(), meta: { error: 'Service 목록을 불러오지 못했습니다.' } });
+export const useServiceMemberships = (clientId: string) => useInfiniteQuery({
+  queryKey: ['service-memberships', clientId],
+  queryFn: ({ pageParam }) => authApi.memberships(clientId, SERVICE_MEMBERSHIP_PAGE_SIZE, pageParam),
+  initialPageParam: 0,
+  getNextPageParam: (last, all) => (hasMoreServiceMemberships(last.length) ? all.length * SERVICE_MEMBERSHIP_PAGE_SIZE : undefined),
+});
 
 // 검색어가 바뀌는 동안 이전 목록을 유지해 입력창이 언마운트되지 않게 한다.
 export const useUsers = (search: string) => useQuery({ queryKey: ['users', search], queryFn: () => authApi.users(search), placeholderData: keepPreviousData });

@@ -15,6 +15,7 @@ import { Route as ConsoleIndexRouteImport } from './routes/_console/index'
 import { Route as ConsoleOperationsRouteImport } from './routes/_console/operations'
 import { Route as ConsoleSettingsRouteImport } from './routes/_console/settings'
 import { Route as ConsoleAppsIndexRouteImport } from './routes/_console/apps/index'
+import { Route as ConsoleAppsClientIdRouteImport } from './routes/_console/apps/$clientId'
 import { Route as ConsoleUsersIndexRouteImport } from './routes/_console/users/index'
 
 const ConsoleRoute = ConsoleRouteImport.update({
@@ -46,6 +47,11 @@ const ConsoleAppsIndexRoute = ConsoleAppsIndexRouteImport.update({
   path: '/apps/',
   getParentRoute: () => ConsoleRoute,
 } as any)
+const ConsoleAppsClientIdRoute = ConsoleAppsClientIdRouteImport.update({
+  id: '/apps/$clientId',
+  path: '/apps/$clientId',
+  getParentRoute: () => ConsoleRoute,
+} as any)
 const ConsoleUsersIndexRoute = ConsoleUsersIndexRouteImport.update({
   id: '/users/',
   path: '/users/',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/operations': typeof ConsoleOperationsRoute
   '/settings': typeof ConsoleSettingsRoute
+  '/apps/$clientId': typeof ConsoleAppsClientIdRoute
   '/apps/': typeof ConsoleAppsIndexRoute
   '/users/': typeof ConsoleUsersIndexRoute
 }
@@ -65,6 +72,7 @@ export interface FileRoutesByTo {
   '/operations': typeof ConsoleOperationsRoute
   '/settings': typeof ConsoleSettingsRoute
   '/': typeof ConsoleIndexRoute
+  '/apps/$clientId': typeof ConsoleAppsClientIdRoute
   '/apps': typeof ConsoleAppsIndexRoute
   '/users': typeof ConsoleUsersIndexRoute
 }
@@ -75,14 +83,29 @@ export interface FileRoutesById {
   '/_console/operations': typeof ConsoleOperationsRoute
   '/_console/settings': typeof ConsoleSettingsRoute
   '/_console/': typeof ConsoleIndexRoute
+  '/_console/apps/$clientId': typeof ConsoleAppsClientIdRoute
   '/_console/apps/': typeof ConsoleAppsIndexRoute
   '/_console/users/': typeof ConsoleUsersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/operations' | '/settings' | '/apps/' | '/users/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/operations'
+    | '/settings'
+    | '/apps/$clientId'
+    | '/apps/'
+    | '/users/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/operations' | '/settings' | '/' | '/apps' | '/users'
+  to:
+    | '/login'
+    | '/operations'
+    | '/settings'
+    | '/'
+    | '/apps/$clientId'
+    | '/apps'
+    | '/users'
   id:
     | '__root__'
     | '/_console'
@@ -90,6 +113,7 @@ export interface FileRouteTypes {
     | '/_console/operations'
     | '/_console/settings'
     | '/_console/'
+    | '/_console/apps/$clientId'
     | '/_console/apps/'
     | '/_console/users/'
   fileRoutesById: FileRoutesById
@@ -143,6 +167,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConsoleAppsIndexRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    '/_console/apps/$clientId': {
+      id: '/_console/apps/$clientId'
+      path: '/apps/$clientId'
+      fullPath: '/apps/$clientId'
+      preLoaderRoute: typeof ConsoleAppsClientIdRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
     '/_console/users/': {
       id: '/_console/users/'
       path: '/users'
@@ -157,6 +188,7 @@ interface ConsoleRouteChildren {
   ConsoleOperationsRoute: typeof ConsoleOperationsRoute
   ConsoleSettingsRoute: typeof ConsoleSettingsRoute
   ConsoleIndexRoute: typeof ConsoleIndexRoute
+  ConsoleAppsClientIdRoute: typeof ConsoleAppsClientIdRoute
   ConsoleAppsIndexRoute: typeof ConsoleAppsIndexRoute
   ConsoleUsersIndexRoute: typeof ConsoleUsersIndexRoute
 }
@@ -165,6 +197,7 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleOperationsRoute: ConsoleOperationsRoute,
   ConsoleSettingsRoute: ConsoleSettingsRoute,
   ConsoleIndexRoute: ConsoleIndexRoute,
+  ConsoleAppsClientIdRoute: ConsoleAppsClientIdRoute,
   ConsoleAppsIndexRoute: ConsoleAppsIndexRoute,
   ConsoleUsersIndexRoute: ConsoleUsersIndexRoute,
 }
