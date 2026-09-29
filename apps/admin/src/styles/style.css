@@ -1,4 +1,4 @@
-/* apps/admin/src/style.css — theme.css 다음에 import */
+/* apps/admin/src/styles/style.css — index.css 에서 디자인 시스템 base.css 다음에 import. 셸(사이드바/탑바)은 디자인 시스템 AppShell 이 그린다. */
 
 * { box-sizing: border-box; }
 body {
@@ -10,8 +10,6 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
 input, button, select, textarea { font-family: inherit; }
 input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent-soft); outline-offset: 1px; }
 ::placeholder { color: var(--fg-3); }
@@ -20,42 +18,24 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .dim { color: var(--fg-3); }
 .spacer { flex: 1; }
 
-/* ---------- shell ---------- */
-.shell { display: flex; min-height: 100vh; }
-.sidebar {
-  width: 238px; flex: none; display: flex; flex-direction: column;
-  border-right: 1px solid var(--border); background: var(--panel);
-  padding: 14px 12px; position: sticky; top: 0; height: 100vh;
-}
+/* ---------- chrome (login brand, topbar widgets, page head) ---------- */
 .brand { display: flex; align-items: center; gap: 9px; padding: 4px 6px 0; }
 .brand-mark {
   width: 24px; height: 24px; border-radius: 6px; background: var(--fg); color: var(--bg);
   display: grid; place-items: center; font-weight: 700; font-size: 12px;
 }
 .brand-name { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
-.brand-host { font-size: 10.5px; color: var(--fg-3); }
-.nav { display: grid; gap: 2px; margin-top: 20px; }
-.nav-item {
-  display: flex; align-items: center; gap: 9px; padding: 7px 8px; border: 0; border-radius: 6px;
-  font-size: 13.5px; text-align: left; cursor: pointer; background: transparent; color: var(--fg-2);
-}
-.nav-item:hover { background: var(--panel-2); color: var(--fg); }
-.nav-item.active { background: var(--panel-2); color: var(--fg); }
-.sidebar-foot { border-top: 1px solid var(--border); padding-top: 12px; display: grid; gap: 10px; }
 
-.content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.topbar {
-  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 14px;
-  height: 52px; padding: 0 22px; border-bottom: 1px solid var(--border); background: var(--bg);
-}
-.crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg-3); }
-.crumb strong { color: var(--fg); font-weight: 500; }
 .cmdk-btn {
   display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 9px 0 10px;
   border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
   color: var(--fg-3); font-size: 12.5px; cursor: pointer; min-width: 190px;
 }
 .cmdk-btn:hover { border-color: var(--border-strong); }
+@media (max-width: 720px) {
+  .cmdk-btn { min-width: 0; padding: 0 9px; }
+  .cmdk-btn .cmdk-label, .cmdk-btn .spacer, .cmdk-btn kbd { display: none; }
+}
 kbd {
   font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 1px 5px;
   border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--fg-3);
@@ -63,7 +43,7 @@ kbd {
 .status-pill {
   display: flex; align-items: center; gap: 7px; padding: 0 10px; height: 30px;
   border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
-  font-size: 12.5px; color: var(--fg-2);
+  font-size: 12.5px; color: var(--fg-2); white-space: nowrap;
 }
 .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
 .dot--ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(56, 178, 107, 0.16); }
@@ -75,7 +55,6 @@ kbd {
   overflow: hidden; flex: none;
 }
 .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.page { flex: 1; padding: 26px 22px 60px; max-width: 1240px; width: 100%; animation: popIn 0.18s ease both; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .page-head h1 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -0.02em; }
 .page-head p { margin: 5px 0 0; color: var(--fg-2); font-size: 13px; }
@@ -283,8 +262,3 @@ table.data tr.inactive { opacity: 0.55; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes popIn { from { opacity: 0; transform: translateY(-6px) scale(0.99); } to { opacity: 1; transform: none; } }
 @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
-
-@media (max-width: 720px) {
-  .sidebar { display: none; }
-  .page { padding: 20px 14px 48px; }
-}

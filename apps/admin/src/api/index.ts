@@ -27,7 +27,7 @@ function mutate<T>(path: string, method: 'POST' | 'PATCH' | 'DELETE', csrfToken:
   return request<T>(path, init);
 }
 
-export interface AdminSessionResponse { authenticated: true }
+export interface AdminSessionResponse { authenticated: true; user: AuthenticatedUser }
 export interface AdminCsrfResponse { csrfToken: string }
 export interface AdminService { client_id: string; service_id?: string; serviceId?: string; name: string; service_name?: string; serviceName?: string; allowed_origins: string[]; default_redirect: string; auto_provision: boolean; onboarding_path: string | null; is_active: boolean; logo_url: string | null; theme_color: string | null; membership_count?: number }
 /** @deprecated Use AdminService. */

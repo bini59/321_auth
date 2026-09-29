@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLogout, useSession, useUsers } from '@/api/queries';
 import { CommandPalette, useCommandPalette, type Command } from '@/components/command-palette';
 import { useTheme, type ThemePreference } from '@/hooks/use-theme';
-import { AppShell } from '@/layout/app-shell';
+import { ConsoleShell } from '@/layout/console-shell';
 import { BRAND, NAV, readSection, type Section } from '@/layout/nav';
 import { SkeletonPage } from '@/layout/skeleton-page';
 import { LoginPage } from '@/sections/login';
@@ -58,7 +58,7 @@ function Console() {
 
   return (
     <>
-      <AppShell section={section} onNavigate={go} onOpenPalette={() => palette.setOpen(true)}>
+      <ConsoleShell section={section} onOpenPalette={() => palette.setOpen(true)}>
         {section === 'overview' ? (
           <OverviewSection />
         ) : section === 'users' ? (
@@ -70,7 +70,7 @@ function Console() {
         ) : (
           <SettingsSection />
         )}
-      </AppShell>
+      </ConsoleShell>
 
       {palette.open && <ConsolePalette go={go} openUser={openUser} setTheme={setTheme} onClose={() => palette.setOpen(false)} />}
     </>

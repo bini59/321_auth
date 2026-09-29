@@ -13,6 +13,7 @@ import type { Request, Response } from 'express';
 import { ENV, PROVIDERS, type ProviderName } from '../config/env';
 import { OidcService } from '../oidc/oidc.service';
 import { MembershipsService } from '../memberships/memberships.service';
+import { UsersService } from '../users/users.service';
 import { AdminCsrfGuard } from './admin-csrf.guard';
 import { AdminSessionService } from './admin-session.service';
 import { validateAdminReturnTo } from './admin-return-to';
@@ -38,6 +39,7 @@ export class AdminAuthController {
     private readonly sessions: AdminSessionService,
     private readonly oidc: OidcService,
     private readonly memberships: MembershipsService,
+    private readonly users: UsersService,
   ) {}
 
   @Get('login/:provider')
@@ -63,7 +65,15 @@ export class AdminAuthController {
     if (!sid || !(await this.sessions.exists(sid)) || !userId || !(await this.memberships.isAdmin(userId))) {
       throw new UnauthorizedException();
     }
-    return { authenticated: true };
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException();
+    // 사이드바 프로필용. GET /me 응답(AuthenticatedUser)과 같은 모양이다.
+    // main.ts 의 CSP img-src 는 static 출처만 허용한다. 그 밖의 OIDC provider 사진은 깨진 이미지가 되므로 null(이니셜 폴백)로 내린다.
+    const avatarUrl = user.avatar_url?.startsWith(`${ENV.staticOrigin}/`) ? user.avatar_url : null;
+    return {
+      authenticated: true,
+      user: { userId: user.id, email: user.email, emailVerified: user.email_verified, name: user.name, avatarUrl, membership: null },
+    };
   }
 
   @Post('logout')

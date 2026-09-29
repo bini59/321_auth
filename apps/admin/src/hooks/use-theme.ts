@@ -1,10 +1,12 @@
 // apps/admin/src/hooks/use-theme.ts
 import { useCallback, useEffect, useState } from 'react';
+import { THEME_STORAGE_KEY } from '@bini59/design';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
 
-const STORAGE_KEY = 'auth-admin.theme';
+// 디자인 시스템 ThemeToggle 과 같은 키를 써야 사이드바 토글과 설정 화면이 서로 맞는다.
+const STORAGE_KEY = THEME_STORAGE_KEY;
 
 function readPreference(): ThemePreference {
   const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -37,9 +39,3 @@ export function useTheme() {
 
   return { preference, resolved, setTheme };
 }
-
-/**
- * index.html <head> 최상단에 인라인으로 넣어 첫 페인트 깜빡임(FOUC)을 막습니다.
- * <script>{THEME_BOOT_SCRIPT}</script>
- */
-export const THEME_BOOT_SCRIPT = `(function(){try{var p=localStorage.getItem('${STORAGE_KEY}')||'system';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}})();`;

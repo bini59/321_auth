@@ -1,7 +1,7 @@
 // apps/admin/src/sections/login.tsx
 import { useEffect, useState } from 'react';
+import { ThemeToggle } from '@bini59/design';
 import { authApi } from '@/api';
-import { ThemeToggle } from '@/components/theme-toggle';
 
 export function LoginPage({ brandName = 'Auth Admin', host = 'bini59.dev' }: { brandName?: string; host?: string }) {
   const [error, setError] = useState('');
@@ -38,7 +38,7 @@ export function LoginPage({ brandName = 'Auth Admin', host = 'bini59.dev' }: { b
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-          <div style={{ width: 120 }}><ThemeToggle /></div>
+          <ThemeToggle />
         </div>
       </div>
     </main>
