@@ -221,6 +221,11 @@ export class AuthController {
   }
 
   @Get('verify')
+  // 앱 서버들이 매 요청 호출하고, 같은 호스트(oracle-server)의 앱은 auth 입장에서 IP 하나다.
+  // 전역 120/분을 같이 쓰면 정상 트래픽이나 임의 sid 난사로 모든 SSO 앱이 함께 503이 된다.
+  // 시크릿 비교는 sha256 한 번이라 높은 한도가 안전하다.
+  // ponytail: IP 기준 한도. 앱 서버가 늘어 3000/분도 모자라면 검증된 client_id 기준 버킷으로 옮긴다.
+  @Throttle({ default: { limit: 3000, ttl: 60000 } })
   @UseGuards(AppSecretGuard)
   async verify(@Req() req: Request) {
     const clientId = req.authClientId;
