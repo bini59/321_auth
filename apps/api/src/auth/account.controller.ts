@@ -175,7 +175,7 @@ export class AccountController {
     return { userId: user.id, email: user.email, name: user.name, avatarUrl: user.avatar_url, profileCompleted: Boolean(user.profile_completed_at), identities: await this.users.identities(user.id) };
   }
 
-  // Redis/DB 가 흔들려도 계정 화면 전체가 죽지 않도록 목록 조회는 빈 배열로 접는다.
+  // DB 가 흔들려도 계정 화면 전체가 죽지 않도록 목록 조회는 빈 배열로 접는다.
   private async accountMemberships(userId: string) {
     try {
       return await this.memberships.listForUser(userId);

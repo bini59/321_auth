@@ -23,7 +23,6 @@ import { UsersService } from '../users/users.service';
 import { MembershipsService } from '../memberships/memberships.service';
 import { AppSecretGuard } from '../security/app-secret.guard';
 import { CsrfGuard } from '../security/csrf.guard';
-import { pool } from '../db/db';
 import { AdminSessionService } from '../admin/admin-session.service';
 import { cspNonce } from './portal-ui';
 import { renderLoginPage } from './login-page';
@@ -306,16 +305,8 @@ export class AuthController {
   @Get('deletions')
   @UseGuards(AppSecretGuard)
   async deletions(@Query('since') since: string | undefined, @Req() req: Request) {
-    const sinceIso = since && !isNaN(Date.parse(since)) ? since : undefined;
     // ponytail: 큐 행은 지우지 않고 앱별 ack 로 거른다. 모든 앱 ack 후 정리가 필요하면 배치로 추가.
-    const r = await pool.query(
-      `SELECT q.user_id, q.requested_at FROM deletion_queue q
-       WHERE ($1::timestamptz IS NULL OR q.requested_at > $1::timestamptz)
-         AND NOT EXISTS (SELECT 1 FROM deletion_acks a WHERE a.user_id = q.user_id AND a.client_id = $2)
-       ORDER BY q.requested_at ASC`,
-      [sinceIso ?? null, req.authClientId],
-    );
-    return { deletions: r.rows.map((x) => ({ userId: x.user_id, requestedAt: x.requested_at })) };
+    return { deletions: await this.users.listDeletions(req.authClientId!, since) };
   }
 
   @Post('deletions/:userId/ack')
@@ -324,12 +315,7 @@ export class AuthController {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
       throw new BadRequestException('invalid user id');
     }
-    await pool.query(
-      `INSERT INTO deletion_acks (user_id, client_id)
-       SELECT user_id, $2 FROM deletion_queue WHERE user_id = $1
-       ON CONFLICT DO NOTHING`,
-      [userId, req.authClientId],
-    );
+    await this.users.ackDeletion(userId, req.authClientId!);
     return { ok: true };
   }
 

@@ -14,10 +14,10 @@ export class AdminManagementService {
     const q = search?.trim() || null;
     const result = await this.db.query(
       `SELECT u.id, u.email, u.email_verified, u.name, u.avatar_url, u.created_at,
-              COUNT(DISTINCT i.provider)::int AS provider_count,
-              COUNT(DISTINCT m.client_id)::int AS membership_count
+              COUNT(DISTINCT i.provider) AS provider_count,
+              COUNT(DISTINCT m.client_id) AS membership_count
          FROM users u LEFT JOIN identities i ON i.user_id = u.id LEFT JOIN memberships m ON m.user_id = u.id
-        WHERE ($1::text IS NULL OR u.email ILIKE '%' || $1 || '%' OR u.name ILIKE '%' || $1 || '%' OR u.id::text = $1)
+        WHERE ($1 IS NULL OR u.email LIKE '%' || $1 || '%' OR u.name LIKE '%' || $1 || '%' OR u.id = $1)
         GROUP BY u.id ORDER BY u.created_at DESC LIMIT $2 OFFSET $3`,
       [q, limit, offset],
     );

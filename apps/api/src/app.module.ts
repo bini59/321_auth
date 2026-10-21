@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DbModule } from './db/db.module';
-import { RedisModule } from './redis/redis-module';
 import { SessionService } from './sessions/session.service';
 import { ClientsService } from './clients/clients.service';
 import { OidcService } from './oidc/oidc.service';
@@ -33,7 +32,6 @@ import { ProfileService } from './profile/profile.service';
       serveStaticOptions: { fallthrough: true, index: false, redirect: false },
     }),
     DbModule,
-    RedisModule,
     ThrottlerModule.forRoot([
       { name: 'default', ttl: 60000, limit: 120 },
     ]),

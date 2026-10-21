@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { pool } from './db';
 
-export const DB_PROVIDER = 'PG_POOL';
+export const DB_PROVIDER = 'DB';
 
 @Module({
   providers: [{ provide: DB_PROVIDER, useValue: pool }],

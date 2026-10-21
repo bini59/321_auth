@@ -14,7 +14,7 @@ describe('OverviewView', () => {
         activeSessions: 2,
         deletionRequests: 5,
       },
-      services: { api: 'up', postgres: 'up', redis: 'up' },
+      services: { api: 'up', database: 'up' },
     };
 
     const html = renderToStaticMarkup(<OverviewView data={data} />);
@@ -36,7 +36,7 @@ describe('OverviewView', () => {
         activeSessions: null,
         deletionRequests: null,
       },
-      services: { api: 'up', postgres: 'down', redis: 'down' },
+      services: { api: 'up', database: 'down' },
     };
 
     const html = renderToStaticMarkup(<OverviewView data={data} />);

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DB_PROVIDER } from '../db/db.module';
-import type { DbPool } from '../db/db';
+import { NOW, type DbPool } from '../db/db';
 import type { NormalizedIdentity } from '../oidc/oidc.service';
 
 @Injectable()
@@ -32,12 +32,13 @@ export class UsersService {
          name_source = CASE WHEN $2 IS NULL THEN name_source ELSE 'custom' END,
          avatar_url = COALESCE($3, avatar_url),
          avatar_source = CASE WHEN $3 IS NULL THEN avatar_source ELSE 'custom' END,
-         profile_completed_at = now()
+         profile_completed_at = ${NOW}
        WHERE id = $1
        RETURNING id, email, email_verified, name, avatar_url, profile_completed_at, created_at`,
       [userId, name ?? null, avatarUrl ?? null],
     );
-    return r.rows[0] ?? null;
+    const u = r.rows[0];
+    return u ? { ...u, email_verified: Boolean(u.email_verified) } : null;
   }
 
   async requestDeletion(userId: string): Promise<void> {
@@ -46,7 +47,7 @@ export class UsersService {
       await client.query('BEGIN');
       await client.query(
         `INSERT INTO deletion_queue (user_id) VALUES ($1)
-         ON CONFLICT (user_id) DO UPDATE SET requested_at = now()`,
+         ON CONFLICT (user_id) DO UPDATE SET requested_at = ${NOW}`,
         [userId],
       );
       await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
@@ -59,13 +60,35 @@ export class UsersService {
     }
   }
 
+  // 앱별 삭제 폴링. since 는 ISO 로 정규화해 텍스트 시각과 비교한다 (Postgres 의 ::timestamptz 비교와 같은 결과).
+  async listDeletions(clientId: string, since?: string) {
+    const sinceIso = since && !isNaN(Date.parse(since)) ? new Date(since).toISOString() : null;
+    const r = await this.db.query(
+      `SELECT q.user_id, q.requested_at FROM deletion_queue q
+       WHERE ($1 IS NULL OR q.requested_at > $1)
+         AND NOT EXISTS (SELECT 1 FROM deletion_acks a WHERE a.user_id = q.user_id AND a.client_id = $2)
+       ORDER BY q.requested_at ASC`,
+      [sinceIso, clientId],
+    );
+    return r.rows.map((x) => ({ userId: x.user_id as string, requestedAt: x.requested_at as string }));
+  }
+
+  async ackDeletion(userId: string, clientId: string): Promise<void> {
+    await this.db.query(
+      `INSERT INTO deletion_acks (user_id, client_id)
+       SELECT user_id, $2 FROM deletion_queue WHERE user_id = $1
+       ON CONFLICT DO NOTHING`,
+      [userId, clientId],
+    );
+  }
+
   // PRD §10 — 로그인 상태에서 프로바이더 연결. 병합은 금지.
   async linkIdentity(existingUserId: string, id: NormalizedIdentity): Promise<void> {
     const client = await this.db.connect();
     try {
       await client.query('BEGIN');
       const existing = await client.query(
-        `SELECT user_id FROM identities WHERE provider = $1 AND provider_user_id = $2 FOR UPDATE`,
+        `SELECT user_id FROM identities WHERE provider = $1 AND provider_user_id = $2`,
         [id.provider, id.providerUserId],
       );
       if (existing.rows[0]) {
@@ -100,15 +123,15 @@ export class UsersService {
     }
   }
 
-  // PRD §7.7 — 트랜잭션 + FOR UPDATE 로 동시 로그인 중복 생성 방지.
+  // PRD §7.7 — 동시 로그인 중복 생성 방지. SQLite 연결은 하나이고 트랜잭션은 db.connect() 가
+  // 직렬화하므로 Postgres 시절의 FOR UPDATE 와 같은 효과다.
   async upsertFromProvider(id: NormalizedIdentity): Promise<string> {
     const client = await this.db.connect();
     try {
       await client.query('BEGIN');
       const existing = await client.query(
         `SELECT user_id FROM identities
-          WHERE provider = $1 AND provider_user_id = $2
-          FOR UPDATE`,
+          WHERE provider = $1 AND provider_user_id = $2`,
         [id.provider, id.providerUserId],
       );
 

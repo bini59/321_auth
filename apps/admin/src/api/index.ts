@@ -49,7 +49,7 @@ export interface AdminOverview {
     suspendedMemberships: number | null;
     deletionRequests: number | null;
   };
-  services: { api: 'up'; postgres: 'up' | 'down'; redis: 'up' | 'down' };
+  services: { api: 'up'; database: 'up' | 'down' };
 }
 export interface DeletionQueueItem { userId: string; requestedAt: string }
 export const authApi = {
