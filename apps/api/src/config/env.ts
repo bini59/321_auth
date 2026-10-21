@@ -41,8 +41,7 @@ export const ENV = {
   googleClientSecret: optional('GOOGLE_CLIENT_SECRET'),
   kakaoRestApiKey: optional('KAKAO_REST_API_KEY'),
   kakaoClientSecret: optional('KAKAO_CLIENT_SECRET'),
-  databaseUrl: optional('DATABASE_URL'),
-  redisUrl: optional('REDIS_URL'),
+  databasePath: optional('DATABASE_PATH') || '/var/lib/321-auth/data/auth.db',
 };
 
 export const PROVIDERS: Record<ProviderName, ProviderConfig> = {

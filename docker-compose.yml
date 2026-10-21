@@ -1,51 +1,18 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-auth_svc}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
-      POSTGRES_DB: ${POSTGRES_DB:-auth_db}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-auth_svc} -d ${POSTGRES_DB:-auth_db}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    # ports: 없음 — 외부 노출 금지
-
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    # ports: 없음 — 외부 노출 금지
-    restart: unless-stopped
-
   auth-app:
     image: ${APP_IMAGE:-321_auth-auth-app:latest}
     build:
       context: .
       dockerfile: Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-auth_svc}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-auth_db}
-      REDIS_URL: redis://redis:6379
+      # 사용자·클라이언트·세션이 모두 이 SQLite 파일 하나에 있다. 백업은 docs/database.md 참고.
+      DATABASE_PATH: /var/lib/321-auth/data/auth.db
       PROFILE_STORAGE_DIR: /var/lib/321-auth/profile
       PORT: 3000
     volumes:
+      - authdata:/var/lib/321-auth/data
       - ${PROFILE_STORAGE_PATH:-/home/ubuntu/logos/profile}:/var/lib/321-auth/profile:rw
     # 호스트에서만 바인딩 — 외부 접근은 cloudflared tunnel이 담당
     ports:
@@ -61,8 +28,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  pgdata:
-  redisdata:
+  authdata:
 
 networks:
   api-net:

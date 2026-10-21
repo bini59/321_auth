@@ -18,11 +18,12 @@ COPY apps/admin/src apps/admin/src
 COPY apps/admin/public apps/admin/public
 COPY packages/contracts/src packages/contracts/src
 RUN pnpm --filter @321-auth/admin build
-# 마이그레이션 SQL도 dist로 복사 (런타임에서 __dirname 기준으로 읽음)
-COPY apps/api/src/db/migrations ./apps/api/dist/db/migrations
+# 마이그레이션 SQL 은 nest build 가 dist/db/migrations 로 복사한다 (nest-cli.json assets)
+RUN test -f apps/api/dist/db/migrations/001_init.sql
 
 FROM base AS prod
 ENV NODE_ENV=production
+ENV DATABASE_PATH=/var/lib/321-auth/data/auth.db
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist

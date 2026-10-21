@@ -11,8 +11,7 @@ export function OverviewView({ data }: { data: AdminOverview | null }) {
     { label: '탈퇴 요청', value: formatAdminCount(data?.counts.deletionRequests), hint: '처리 대기 중인 요청' },
   ];
   const deps = [
-    { name: 'postgres', status: data?.services.postgres },
-    { name: 'redis', status: data?.services.redis },
+    { name: 'sqlite', status: data?.services.database },
   ];
 
   return (

@@ -2,8 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import { jwtVerify, type JWTPayload, type JWTVerifyOptions } from 'jose';
 import { ENV, JWKS, PROVIDERS, type ProviderName } from '../config/env';
-import { REDIS } from '../redis/redis-module';
-import type Redis from 'ioredis';
+import { DB_PROVIDER } from '../db/db.module';
+import type { DbPool } from '../db/db';
 import { validateReturnTo, type ClientInfo } from './return-to';
 
 export type NormalizedIdentity = {
@@ -26,16 +26,11 @@ interface OauthState {
   existingSessionId?: string;
 }
 
-const OAUTH_STATE_TTL = 600;
+const OAUTH_STATE_TTL_MS = 600_000;
 
 @Injectable()
 export class OidcService {
-  constructor(@Inject(REDIS) private readonly redis: Redis | null) {}
-
-  private client(): Redis {
-    if (!this.redis) throw new Error('REDIS_URL not configured');
-    return this.redis;
-  }
+  constructor(@Inject(DB_PROVIDER) private readonly db: DbPool) {}
 
   validateReturnTo(returnTo: string | undefined, client: ClientInfo): string {
     return validateReturnTo(returnTo, client);
@@ -64,7 +59,12 @@ export class OidcService {
       existingSessionId: opts.existingSessionId,
     };
 
-    await this.client().set(`oauth_state:${state}`, JSON.stringify(payload), 'EX', OAUTH_STATE_TTL);
+    const now = Date.now();
+    await this.db.query('DELETE FROM oauth_states WHERE expires_at <= $1', [now]);
+    await this.db.query(
+      'INSERT INTO oauth_states (state, payload, expires_at) VALUES ($1, $2, $3)',
+      [state, JSON.stringify(payload), now + OAUTH_STATE_TTL_MS],
+    );
 
     const url = new URL(cfg.authUrl);
     url.searchParams.set('client_id', cfg.clientId);
@@ -86,10 +86,11 @@ export class OidcService {
     return this.buildAuthUrl(provider, null, returnTo, { mode: 'admin-login' });
   }
 
-  // GETDEL — state 1회만 소비 (리플레이 차단)
+  // DELETE ... RETURNING — state 1회만 소비 (리플레이 차단). 만료된 state 도 지우되 쓰지 않는다.
   async consumeState(state: string): Promise<OauthState | null> {
-    const raw = await this.client().getdel(`oauth_state:${state}`);
-    return raw ? (JSON.parse(raw) as OauthState) : null;
+    const r = await this.db.query('DELETE FROM oauth_states WHERE state = $1 RETURNING payload, expires_at', [state]);
+    const row = r.rows[0];
+    return row && Number(row.expires_at) > Date.now() ? (JSON.parse(row.payload) as OauthState) : null;
   }
 
   async exchangeCode(provider: ProviderName, code: string, verifier: string) {

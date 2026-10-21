@@ -1,8 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
-import type Redis from 'ioredis';
+import { Injectable, Inject } from '@nestjs/common';
 import { DB_PROVIDER } from '../db/db.module';
 import type { DbPool } from '../db/db';
-import { REDIS } from '../redis/redis-module';
+import { SessionService } from '../sessions/session.service';
 
 export interface AdminOverview {
   counts: {
@@ -15,8 +14,7 @@ export interface AdminOverview {
   };
   services: {
     api: 'up';
-    postgres: 'up' | 'down';
-    redis: 'up' | 'down';
+    database: 'up' | 'down';
   };
 }
 
@@ -29,24 +27,24 @@ export interface DeletionQueueItem {
 export class AdminDashboardService {
   constructor(
     @Inject(DB_PROVIDER) private readonly db: DbPool,
-    @Inject(REDIS) private readonly redis: Redis | null,
+    private readonly sessions: SessionService,
   ) {}
 
   async overview(): Promise<AdminOverview> {
-    const [users, clients, memberships, suspendedMemberships, deletionRequests, postgres, redis] = await Promise.all([
-      this.count('SELECT count(*)::int AS count FROM users'),
-      this.count('SELECT count(*)::int AS count FROM clients'),
-      this.count("SELECT count(*)::int AS count FROM memberships WHERE status = 'active'"),
-      this.count("SELECT count(*)::int AS count FROM memberships WHERE status = 'suspended'"),
-      this.count('SELECT count(*)::int AS count FROM deletion_queue'),
-      this.postgresStatus(),
-      this.redisStatus(),
+    const [users, clients, memberships, suspendedMemberships, deletionRequests, activeSessions, database] = await Promise.all([
+      this.count('SELECT count(*) AS count FROM users'),
+      this.count('SELECT count(*) AS count FROM clients'),
+      this.count("SELECT count(*) AS count FROM memberships WHERE status = 'active'"),
+      this.count("SELECT count(*) AS count FROM memberships WHERE status = 'suspended'"),
+      this.count('SELECT count(*) AS count FROM deletion_queue'),
+      this.sessions.countActive().catch(() => null),
+      this.databaseStatus(),
     ]);
 
     return {
       counts: {
         users,
-        activeSessions: redis.activeSessions,
+        activeSessions,
         clients,
         memberships,
         suspendedMemberships,
@@ -54,8 +52,7 @@ export class AdminDashboardService {
       },
       services: {
         api: 'up',
-        postgres: postgres ? 'up' : 'down',
-        redis: redis.status,
+        database: database ? 'up' : 'down',
       },
     };
   }
@@ -82,33 +79,12 @@ export class AdminDashboardService {
     }
   }
 
-  private async postgresStatus(): Promise<boolean> {
+  private async databaseStatus(): Promise<boolean> {
     try {
       await this.db.query('SELECT 1');
       return true;
     } catch {
       return false;
     }
-  }
-
-  private async redisStatus(): Promise<{ status: 'up' | 'down'; activeSessions: number | null }> {
-    if (!this.redis) return { status: 'down', activeSessions: null };
-    try {
-      await this.redis.ping();
-      return { status: 'up', activeSessions: await this.countUserSessions() };
-    } catch {
-      return { status: 'down', activeSessions: null };
-    }
-  }
-
-  private async countUserSessions(): Promise<number> {
-    let cursor = '0';
-    let count = 0;
-    do {
-      const [nextCursor, keys] = await this.redis!.scan(cursor, 'MATCH', 'sess:*', 'COUNT', 1000);
-      cursor = nextCursor;
-      count += keys.length;
-    } while (cursor !== '0');
-    return count;
   }
 }

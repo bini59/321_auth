@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DB_PROVIDER } from '../db/db.module';
-import type { DbPool } from '../db/db';
+import { NOW, type DbPool } from '../db/db';
 
 @Injectable()
 export class MembershipsService {
@@ -32,7 +32,7 @@ export class MembershipsService {
       themeColor: (row.theme_color as string | null) ?? null,
       role: row.role as string,
       status: row.status as string,
-      lastSeenAt: (row.last_seen_at as Date | null) ?? null,
+      lastSeenAt: (row.last_seen_at as string | null) ?? null,
     }));
   }
 
@@ -55,7 +55,7 @@ export class MembershipsService {
 
   async touch(userId: string, clientId: string) {
     await this.db.query(
-      `UPDATE memberships SET last_seen_at = now() WHERE user_id = $1 AND client_id = $2`,
+      `UPDATE memberships SET last_seen_at = ${NOW} WHERE user_id = $1 AND client_id = $2`,
       [userId, clientId],
     );
   }
