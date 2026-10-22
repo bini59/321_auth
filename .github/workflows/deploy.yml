@@ -3,8 +3,11 @@ name: Deploy
 on:
   push:
     branches: [main]
-  # 운영 배포는 수동 실행만. main push 는 검증 + 이미지 빌드까지만 한다.
-  # (Postgres/Redis → SQLite 전환 runbook 은 docs/database.md 참고. 전환이 끝나면 push 배포를 다시 켤 수 있다.)
+  # 이 workflow 는 검증 + 이미지 빌드까지만 한다. 운영(auth.bini59.dev)은 Oracle k3s 의 auth namespace 이고
+  # bini59/homelab apps/auth/auth.yaml 에서 auth-app 이미지 태그(sha-<commit>)를 바꿔 커밋하면 Flux 가 배포한다.
+  # 태그를 올리기 전에 새 이미지로 node apps/api/dist/db/migrate.js 를 한 번 실행한다(일회성 Job: env 는 Secret auth/env,
+  # imagePullSecrets ghcr-pull). 이전 self-hosted deploy job 의 migrate → clients 확인 → 재기동 순서를 그대로 따른다.
+  # (Postgres/Redis → SQLite 전환 runbook 은 docs/database.md 참고. 운영은 아직 Postgres 버전이다.)
   workflow_dispatch:
 
 # 같은 시점 다중 배포 차단
@@ -91,47 +94,3 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/arm64
-
-  # 2) 실제 배포 (Self-Hosted Runner)
-  deploy:
-    name: Deploy (self-hosted)
-    needs: build-and-push
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, auth-prod]
-    timeout-minutes: 15
-    environment: production
-    permissions:
-      contents: read
-      packages: read
-    defaults:
-      run:
-        working-directory: ${{ vars.DEPLOY_PATH || '/home/ubuntu/03_personal/321_auth' }}
-    steps:
-      - name: Sync repository (fetch + reset to main)
-        run: |
-          git fetch origin main
-          git reset --hard origin/main
-
-      - name: Log in to GHCR (for image pull)
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Deploy (pull image → migrate → data check → restart)
-        env:
-          APP_IMAGE: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
-        run: |
-          # 새 이미지 받기
-          docker compose pull auth-app
-          
-          # 새 이미지에서 먼저 SQLite 마이그레이션 (idempotent). 실패하면 기존 앱을 유지한다.
-          docker compose run --rm auth-app node apps/api/dist/db/migrate.js
-
-          # 데이터가 없는 SQLite 로 재기동하면 모든 SSO 클라이언트가 401 이 된다.
-          # Postgres 이전(import-postgres.js)을 하기 전이면 여기서 멈추고 기존 앱을 유지한다.
-          docker compose run --rm auth-app node -e "const { DatabaseSync } = require('node:sqlite'); const db = new DatabaseSync(process.env.DATABASE_PATH, { readOnly: true }); const { n } = db.prepare('SELECT count(*) AS n FROM clients').get(); if (!n) { console.error('SQLite has no clients; run the Postgres import first (see docs/database.md)'); process.exit(1); } console.log('clients:', n);"
-
-          # 마이그레이션 성공 후 새 이미지로 재기동
-          docker compose up -d auth-app --wait
-          curl --fail --silent --show-error http://127.0.0.1:3002/healthz
-
-      - name: Cleanup old images
-        run: docker image prune -f -a --filter "until=24h"
