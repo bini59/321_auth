@@ -163,7 +163,7 @@ function membershipsCard(memberships: AccountMembershipView[]): string {
       const color = safeThemeColor(membership.themeColor);
       const style = color ? ` style="background:${color}"` : '';
       const initial = escapeHtml((membership.clientName || membership.clientId).slice(0, 1).toUpperCase());
-      const role = membership.status === 'suspended' ? '이용 정지' : escapeHtml(membership.role);
+      const role = membership.status === 'withdrawn' ? '탈퇴' : membership.status === 'suspended' ? '이용 정지' : escapeHtml(membership.role);
       return `<div class="row"><span class="smark"${style} aria-hidden="true">${initial}</span>` +
         `<div class="row-main"><span class="row-title">${escapeHtml(membership.clientName)}</span><span class="row-sub mono">${escapeHtml(membership.clientId)}</span></div>` +
         `<span class="badge">${role}</span>` +
