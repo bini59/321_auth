@@ -244,7 +244,7 @@ export class AuthController {
       await this.memberships.ensure(user.id, clientId);
       membership = await this.memberships.find(user.id, clientId);
     }
-    if (membership?.status === 'suspended') throw new ForbiddenException('membership suspended');
+    if (membership && membership.status !== 'active') throw new ForbiddenException(`membership ${membership.status}`);
     this.memberships.touch(user.id, clientId);
     await this.sessions.touch(sid, user.id);
 
@@ -300,6 +300,55 @@ export class AuthController {
     if (req.authClientId !== serviceId) throw new ForbiddenException('service mismatch');
     await this.memberships.ensure(dto.userId, serviceId);
     return { ok: true };
+  }
+
+  private async lifecycleUser(req: Request) {
+    if (!req.authClientId) throw new UnauthorizedException();
+    const session = req.cookies?.sid ? await this.sessions.get(req.cookies.sid) : null;
+    if (!session || !(await this.users.findById(session.userId))) throw new UnauthorizedException();
+    const body = req.body ?? {};
+    if ((body.userId !== undefined && body.userId !== session.userId) ||
+        (body.clientId !== undefined && body.clientId !== req.authClientId) ||
+        (body.serviceId !== undefined && body.serviceId !== req.authClientId)) {
+      throw new ForbiddenException('subject or service mismatch');
+    }
+    return session.userId;
+  }
+
+  @Get('memberships/identity')
+  @UseGuards(AppSecretGuard)
+  async membershipIdentity(@Req() req: Request) {
+    const userId = await this.lifecycleUser(req);
+    return { userId, clientId: req.authClientId!, purpose: 'membership-lifecycle',
+      ...await this.memberships.lifecycle(userId, req.authClientId!) };
+  }
+
+  private async changeMembership(req: Request, action: 'withdraw' | 'rejoin' | 'ack') {
+    const userId = await this.lifecycleUser(req);
+    const { version, cleanupId, consent } = req.body ?? {};
+    if (!Number.isSafeInteger(version) || version < 0) throw new BadRequestException('version required');
+    if (action === 'rejoin' && consent !== true) throw new BadRequestException('explicit consent required');
+    if (action === 'ack' && typeof cleanupId !== 'string') throw new BadRequestException('cleanupId required');
+    return { userId, clientId: req.authClientId!,
+      ...await this.memberships.transition(userId, req.authClientId!, action, version, cleanupId) };
+  }
+
+  @Post('memberships/withdraw')
+  @UseGuards(AppSecretGuard, CsrfGuard)
+  async withdrawMembership(@Req() req: Request) {
+    return this.changeMembership(req, 'withdraw');
+  }
+
+  @Post('memberships/cleanup/ack')
+  @UseGuards(AppSecretGuard, CsrfGuard)
+  async ackMembershipCleanup(@Req() req: Request) {
+    return this.changeMembership(req, 'ack');
+  }
+
+  @Post('memberships/rejoin')
+  @UseGuards(AppSecretGuard, CsrfGuard)
+  async rejoinMembership(@Req() req: Request) {
+    return this.changeMembership(req, 'rejoin');
   }
 
   @Get('deletions')

@@ -17,8 +17,8 @@ auth에 등록된 개별 서비스. 로그인 화면 테마, 허용 반환 주�
 _Avoid_: 서비스, 앱
 
 **회원 자격 (Membership)**:
-특정 사용자와 특정 앱 클라이언트 쌍의 자격(역할, 상태). 상태는 active/suspended.
-auth는 요청한 user×client membership의 `status === suspended`일 때만 해당 client의 `/verify`를 403으로 차단하고, 다른 client의 membership이나 계정 전역을 차단하지 않는다. 회원 자격 없음(`membership: null`)과 역할·도메인별 인가는 각 앱이 판단한다.
+특정 사용자와 특정 앱 클라이언트 쌍의 자격(역할, 상태). 관리 상태는 active/suspended이며, 탈퇴 상태는 별도 보존되어 외부 조회 시 withdrawn으로 표시된다.
+auth는 요청한 user×client membership의 `status === suspended` 또는 탈퇴 상태일 때 해당 client의 `/verify`를 403으로 차단하고, 다른 client의 membership이나 계정 전역을 차단하지 않는다. 회원 자격 없음(`membership: null`)과 역할·도메인별 인가는 각 앱이 판단한다.
 _Avoid_: 권한, role
 
 **세션 (Session)**:
