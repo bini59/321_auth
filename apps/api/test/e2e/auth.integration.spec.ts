@@ -388,3 +388,73 @@ test('logout, all-session logout, suspended membership, and deletion are enforce
   expect((await page.request.post(`${origin}/account/delete`, { headers: { 'x-csrf-token': deleteCsrf } })).status()).toBe(204);
   expect((await page.request.get(`${origin}/me`)).status()).toBe(401);
 });
+
+test('account deletion requires confirmation and reports only a successful response', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  app.get(UsersService).deleted = false;
+  await login(page, 'google');
+  await page.goto(`${origin}/client`);
+  let calls = 0;
+  page.on('request', (request) => { if (request.url().endsWith('/account/delete')) calls++; });
+  const entry = page.getByRole('button', { name: '전체 계정 탈퇴' });
+  await entry.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText(/비동기적으로 정리/)).toBeVisible();
+  await expect(dialog.getByText(/외부 서비스의 원본 데이터는 삭제되지/)).toBeVisible();
+  await expect(page.getByRole('button', { name: '취소' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(entry).toBeFocused();
+  expect(calls).toBe(0);
+  expect((await page.request.get(`${origin}/account`)).status()).toBe(200);
+  await entry.click();
+  await page.getByRole('button', { name: '취소' }).click();
+  expect(calls).toBe(0);
+  await entry.click();
+  await page.getByRole('button', { name: '최종 탈퇴 확인' }).click();
+  await expect(page.getByRole('heading', { name: '전체 계정 탈퇴가 완료되었습니다' })).toBeVisible();
+  expect(calls).toBe(1);
+  expect((await page.request.get(`${origin}/account`)).status()).toBe(401);
+  expect((await page.request.get(`${origin}/client`)).status()).toBe(401);
+});
+
+test('account deletion failures remain uncertain and do not show success', async ({ page }) => {
+  app.get(UsersService).deleted = false;
+  await login(page, 'google');
+  await page.goto(`${origin}/client`);
+  for (const status of [401, 403, 500, 0]) {
+    await page.route('**/account/delete', async (route) => {
+      if (status === 0) await route.abort();
+      else await route.fulfill({ status });
+    });
+    await page.getByRole('button', { name: '전체 계정 탈퇴' }).click();
+    await page.getByRole('button', { name: '최종 탈퇴 확인' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: '탈퇴 결과를 확인할 수 없습니다' })).toBeFocused();
+    await expect(page.getByRole('heading', { name: '전체 계정 탈퇴가 완료되었습니다' })).toHaveCount(0);
+    await page.getByRole('button', { name: '취소' }).click();
+    await page.unroute('**/account/delete');
+  }
+  expect((await page.request.get(`${origin}/account`)).status()).toBe(200);
+});
+
+test('pending account deletion prevents duplicate submission', async ({ page }) => {
+  app.get(UsersService).deleted = false;
+  await login(page, 'google');
+  await page.goto(`${origin}/client`);
+  let calls = 0;
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  await page.route('**/account/delete', async (route) => {
+    calls++;
+    await pending;
+    await route.fulfill({ status: 500 });
+  });
+  await page.getByRole('button', { name: '전체 계정 탈퇴' }).click();
+  const confirm = page.getByRole('button', { name: '최종 탈퇴 확인' });
+  await confirm.click();
+  await expect(confirm).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(calls).toBe(1);
+  release();
+  await expect(page.getByRole('alert').filter({ hasText: '탈퇴 결과를 확인할 수 없습니다' })).toBeVisible();
+});
