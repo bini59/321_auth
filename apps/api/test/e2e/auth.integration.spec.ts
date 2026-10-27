@@ -63,9 +63,10 @@ class FakeSessions {
 class FakeUsers {
   deleted = false;
   name = 'E2E User';
+  profileCompleted = true;
   avatarUrl: string | null = null;
   linkedUserId: string | undefined;
-  async findById(id: string) { return id === USER_ID && !this.deleted ? { id, email: 'e2e@example.test', name: this.name, avatar_url: this.avatarUrl, profile_completed_at: '2026-08-07T00:00:00.000Z' } : null; }
+  async findById(id: string) { return id === USER_ID && !this.deleted ? { id, email: 'e2e@example.test', name: this.name, avatar_url: this.avatarUrl, profile_completed_at: this.profileCompleted ? '2026-08-07T00:00:00.000Z' : null } : null; }
   async upsertFromProvider() { return USER_ID; }
   async linkIdentity(userId: string) { this.linkedUserId = userId; }
   async requestDeletion() { this.deleted = true; }
@@ -415,6 +416,37 @@ test('account deletion requires confirmation and reports only a successful respo
   expect(calls).toBe(1);
   expect((await page.request.get(`${origin}/account`)).status()).toBe(401);
   expect((await page.request.get(`${origin}/client`)).status()).toBe(401);
+});
+
+test('an onboarding user can cancel or confirm account deletion', async ({ page }) => {
+  const users = app.get(UsersService) as unknown as FakeUsers;
+  users.deleted = false;
+  users.profileCompleted = false;
+  try {
+    await login(page, 'google');
+    await page.goto(`${origin}/client`);
+    await expect(page.getByRole('heading', { name: '이름을 등록해주세요' })).toBeVisible();
+    let calls = 0;
+    page.on('request', (request) => { if (request.url().endsWith('/account/delete')) calls++; });
+    const entry = page.getByRole('button', { name: '전체 계정 탈퇴' });
+    await entry.click();
+    await expect(page.getByRole('button', { name: '취소' })).toBeFocused();
+    await page.getByRole('button', { name: '취소' }).click();
+    await expect(entry).toBeFocused();
+    expect(calls).toBe(0);
+    expect((await page.request.get(`${origin}/account`)).status()).toBe(200);
+    expect(users.deleted).toBe(false);
+    await entry.click();
+    await page.getByRole('button', { name: '최종 탈퇴 확인' }).click();
+    await expect(page.getByRole('heading', { name: '전체 계정 탈퇴가 완료되었습니다' })).toBeFocused();
+    expect(calls).toBe(1);
+    expect(users.deleted).toBe(true);
+    expect((await page.request.get(`${origin}/account`)).status()).toBe(401);
+    expect((await page.request.get(`${origin}/client`)).status()).toBe(401);
+  } finally {
+    users.profileCompleted = true;
+    users.deleted = false;
+  }
 });
 
 test('account deletion failures remain uncertain and do not show success', async ({ page }) => {

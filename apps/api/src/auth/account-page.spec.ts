@@ -155,6 +155,14 @@ describe('renderAccountPage', () => {
     expect(html).not.toContain('alert(');
   });
 
+  it('offers account deletion during onboarding with the same CSRF-protected dialog', () => {
+    const html = page({ profileCompleted: false, name: null });
+    expect(html).toContain('data-delete-open');
+    expect(html).toContain('data-delete-dialog data-csrf="csrf-token"');
+    expect(html).toContain("fetch('/account/delete'");
+    expect(html).toContain('최종 탈퇴 확인');
+  });
+
   it('surfaces a rejected name on the onboarding screen too', () => {
     const html = page({ profileCompleted: false, name: null, notice: 'name_invalid' });
     expect(html).toContain('이름을 등록해주세요');
