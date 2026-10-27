@@ -187,6 +187,27 @@ function sessionsCard(sessions: AccountSessionView[], csrfQuery: string): string
     `<form method="post" action="/logout/all${csrfQuery}"><button class="btn btn--danger" type="submit">모든 기기에서 로그아웃</button></form></div></section>`;
 }
 
+const DELETE_CSS = `.delete-dialog{width:min(520px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel);color:var(--fg);padding:24px}
+.delete-dialog::backdrop{background:rgba(0,0,0,.6)}
+.delete-dialog h2{margin:0 0 12px}.delete-dialog ul{padding-left:22px;line-height:1.6}.delete-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:20px}
+.delete-complete{padding:24px}.delete-complete h1{margin-top:0}`;
+
+const DELETE_SCRIPT = `(function(){var open=document.querySelector('[data-delete-open]');var dialog=document.querySelector('[data-delete-dialog]');if(!open||!dialog||!dialog.showModal)return;var cancel=dialog.querySelector('[data-delete-cancel]');var confirm=dialog.querySelector('[data-delete-confirm]');var error=dialog.querySelector('[data-delete-error]');var busy=false;
+open.addEventListener('click',function(){error.hidden=true;dialog.showModal();cancel.focus();});
+dialog.addEventListener('cancel',function(e){if(busy)e.preventDefault();});
+dialog.addEventListener('close',function(){open.focus();});
+cancel.addEventListener('click',function(){if(!busy)dialog.close();});
+confirm.addEventListener('click',function(){if(busy)return;busy=true;confirm.disabled=true;cancel.disabled=true;error.hidden=true;
+fetch('/account/delete',{method:'POST',credentials:'same-origin',headers:{'x-csrf-token':dialog.getAttribute('data-csrf')}}).then(function(r){if(r.status===204){dialog.close();var topbar=document.querySelector('.topbar');if(topbar)topbar.remove();document.querySelector('main').innerHTML='<section class="card delete-complete"><h1 tabindex="-1">전체 계정 탈퇴가 완료되었습니다</h1><p>공통 계정이 삭제되고 모든 기기에서 로그아웃되었습니다. 연동 서비스의 로컬 데이터는 각 서비스의 삭제 큐 처리에 따라 정리됩니다.</p><p>외부 서비스의 원본 데이터는 삭제되지 않습니다.</p></section>';document.querySelector('main h1').focus();return;}throw new Error('uncertain');}).catch(function(){error.textContent='탈퇴 결과를 확인할 수 없습니다. 세션 만료, 통신 또는 서버 오류일 수 있습니다. 다시 로그인하거나 재가입하지 말고 서비스 운영자에게 결과 확인을 문의해주세요.';error.hidden=false;error.focus();}).finally(function(){busy=false;confirm.disabled=false;cancel.disabled=false;});});})();`;
+
+function deleteCard(csrf: string): string {
+  return `<section class="card"><div class="card-head">전체 계정 탈퇴</div><div class="card-body"><p>모든 bini59.dev 서비스에 사용하는 공통 계정을 삭제합니다.</p><button class="btn btn--danger" type="button" data-delete-open>전체 계정 탈퇴</button></div></section>
+<dialog class="delete-dialog" data-delete-dialog data-csrf="${escapeHtml(csrf)}" aria-labelledby="delete-title" aria-describedby="delete-description">
+<h2 id="delete-title">전체 계정을 탈퇴하시겠습니까?</h2><p id="delete-description">최종 확인을 누르면 다음 작업이 진행됩니다.</p>
+<ul><li>bini59.dev 공통 계정, 연결된 로그인 정보와 모든 서비스의 회원 자격이 삭제됩니다.</li><li>모든 기기에서 로그아웃됩니다.</li><li>연동 서비스의 로컬 데이터는 각 서비스가 삭제 큐를 처리하면서 비동기적으로 정리됩니다.</li><li>Notion 원본 등 외부 서비스의 원본 데이터는 삭제되지 않습니다.</li><li>삭제된 계정 정보는 복구할 수 없습니다.</li></ul>
+<p class="alert alert--error" role="alert" tabindex="-1" data-delete-error hidden></p><div class="delete-actions"><button class="btn" type="button" data-delete-cancel>취소</button><button class="btn btn--danger" type="button" data-delete-confirm>최종 탈퇴 확인</button></div></dialog>`;
+}
+
 export function renderAccountPage(account: AccountPageData, csrf: string, nonce = ''): string {
   const csrfQuery = `?csrf=${encodeURIComponent(csrf)}`;
   if (!account.profileCompleted) return renderOnboardingPage(account, csrf, nonce);
@@ -194,7 +215,7 @@ export function renderAccountPage(account: AccountPageData, csrf: string, nonce 
   const body = `${topbar({ signedIn: true, avatarUrl: safeAvatarUrl(account.avatarUrl), name: account.name })}
 <main class="page">
 <div class="page-head"><h1>계정</h1><p>bini59.dev 서비스 전체에 적용되는 프로필과 로그인 정보입니다.</p></div>
-<div class="stack">${profileCard(account, csrfQuery)}${identitiesCard(account)}${membershipsCard(account.memberships)}${sessionsCard(account.sessions, csrfQuery)}</div>
+<div class="stack">${profileCard(account, csrfQuery)}${identitiesCard(account)}${membershipsCard(account.memberships)}${sessionsCard(account.sessions, csrfQuery)}${deleteCard(csrf)}</div>
 <footer class="page-foot"><span class="mono">auth.bini59.dev</span><span class="spacer"></span>
 <form method="post" action="/logout${csrfQuery}"><button class="btn btn--ghost btn--sm" type="submit">${LOGOUT_ICON}로그아웃</button></form></footer>
 </main>`;
@@ -203,8 +224,8 @@ export function renderAccountPage(account: AccountPageData, csrf: string, nonce 
     title: '계정 · bini59.dev',
     nonce,
     body,
-    extraCss: `${providerMarkCss()}${AVATAR_DROP_CSS}`,
-    script: `${AVATAR_SCRIPT}${THEME_TOGGLE_SCRIPT}`,
+    extraCss: `${providerMarkCss()}${AVATAR_DROP_CSS}${DELETE_CSS}`,
+    script: `${AVATAR_SCRIPT}${DELETE_SCRIPT}${THEME_TOGGLE_SCRIPT}`,
   });
 }
 
@@ -227,6 +248,7 @@ ${summary}${noticeBanner(account.notice)}
 </form>
 <div class="solo-foot"><span class="dot dot--warn" aria-hidden="true"></span><span>이름을 등록해야 서비스를 이용할 수 있습니다.</span></div>
 </div>
+<div style="margin-top:16px">${deleteCard(csrf)}</div>
 <div style="display:flex;justify-content:center;margin-top:16px">${themeToggle()}</div>
 </div></main>`;
 
@@ -234,8 +256,8 @@ ${summary}${noticeBanner(account.notice)}
     title: '이름 등록 · bini59.dev',
     nonce,
     body,
-    extraCss: providerMarkCss(),
-    script: THEME_TOGGLE_SCRIPT,
+    extraCss: `${providerMarkCss()}${DELETE_CSS}`,
+    script: `${DELETE_SCRIPT}${THEME_TOGGLE_SCRIPT}`,
   });
 }
 

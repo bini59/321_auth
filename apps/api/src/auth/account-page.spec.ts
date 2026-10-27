@@ -96,13 +96,13 @@ describe('renderAccountPage', () => {
 
   it('stays quiet when there is no auth error', () => {
     const html = page();
-    expect(html).not.toContain('role="alert"');
+    expect(html.split('<dialog')[0]).not.toContain('role="alert"');
   });
 
   it('ignores an auth_error value that is not a known code', () => {
     const html = page({ authError: '<img src=x onerror=alert(1)>' });
     expect(html).not.toContain('onerror=alert(1)');
-    expect(html).not.toContain('role="alert"');
+    expect(html.split('<dialog')[0]).not.toContain('role="alert"');
   });
 
   it('confirms a saved profile in the profile card', () => {
@@ -125,12 +125,12 @@ describe('renderAccountPage', () => {
 
   it('ignores inherited whitelist properties', () => {
     const html = page({ notice: '__proto__' });
-    expect(html).not.toContain('class="alert');
+    expect(html.split('<dialog')[0]).not.toContain('class="alert');
   });
 
   it('uses the same safe lookup for auth errors', () => {
     const html = page({ authError: '__proto__' });
-    expect(html).not.toContain('class="alert');
+    expect(html.split('<dialog')[0]).not.toContain('class="alert');
   });
 
   it('reports a save that failed for reasons other than validation', () => {
@@ -140,19 +140,27 @@ describe('renderAccountPage', () => {
   });
 
   it('stays quiet when there is no notice', () => {
-    expect(page()).not.toContain('class="alert');
+    expect(page().split('<dialog')[0]).not.toContain('class="alert');
   });
 
   it('ignores a notice value that is not a known code', () => {
     const html = page({ notice: '<img src=x onerror=alert(1)>' });
     expect(html).not.toContain('onerror=alert(1)');
-    expect(html).not.toContain('class="alert');
+    expect(html.split('<dialog')[0]).not.toContain('class="alert');
   });
 
   it('hands avatar feedback to the portal instead of a browser alert', () => {
     const html = page();
     expect(html).toContain("/client?notice='+encodeURIComponent(notice)");
     expect(html).not.toContain('alert(');
+  });
+
+  it('offers account deletion during onboarding with the same CSRF-protected dialog', () => {
+    const html = page({ profileCompleted: false, name: null });
+    expect(html).toContain('data-delete-open');
+    expect(html).toContain('data-delete-dialog data-csrf="csrf-token"');
+    expect(html).toContain("fetch('/account/delete'");
+    expect(html).toContain('최종 탈퇴 확인');
   });
 
   it('surfaces a rejected name on the onboarding screen too', () => {
