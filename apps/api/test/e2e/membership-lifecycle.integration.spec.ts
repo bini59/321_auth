@@ -6,6 +6,7 @@ import { join } from 'node:path';
 
 // Use emitted Nest decorator metadata and real migrated SQLite, without external providers.
 const { AuthController } = require('../../dist/auth/auth.controller.js');
+const { AccountController } = require('../../dist/auth/account.controller.js');
 const { ClientsService, hashAppSecret } = require('../../dist/clients/clients.service.js');
 const { UsersService } = require('../../dist/users/users.service.js');
 const { MembershipsService } = require('../../dist/memberships/memberships.service.js');
@@ -14,6 +15,7 @@ const { OidcService } = require('../../dist/oidc/oidc.service.js');
 const { AdminSessionService } = require('../../dist/admin/admin-session.service.js');
 const { AppSecretGuard } = require('../../dist/security/app-secret.guard.js');
 const { CsrfGuard } = require('../../dist/security/csrf.guard.js');
+const { ProfileService } = require('../../dist/profile/profile.service.js');
 const { SqliteDb, openDatabase, applyMigrations } = require('../../dist/db/db.js');
 const { ENV } = require('../../dist/config/env.js');
 const db = new SqliteDb(() => {
@@ -33,11 +35,12 @@ const oidc = {
   normalize: () => ({ provider: 'google', providerUserId: 'lifecycle-user', emailVerified: false }),
 };
 @Module({
-  controllers: [AuthController],
+  controllers: [AuthController, AccountController],
   providers: [AppSecretGuard, CsrfGuard,
     { provide: ClientsService, useValue: clients }, { provide: UsersService, useValue: users },
     { provide: MembershipsService, useValue: memberships }, { provide: SessionService, useValue: sessions },
-    { provide: OidcService, useValue: oidc }, { provide: AdminSessionService, useValue: {} }],
+    { provide: OidcService, useValue: oidc }, { provide: AdminSessionService, useValue: {} },
+    { provide: ProfileService, useValue: { deleteAvatar: async () => {} } }],
 })
 class LifecycleModule {}
 let app: Awaited<ReturnType<typeof NestFactory.create>>;
@@ -95,4 +98,37 @@ test('HTTP lifecycle authenticates the subject, preserves withdrawal, and fences
   expect((await post('withdraw', { version: 0 })).status()).toBe(409);
   expect((await post('cleanup/ack', { version: 1, cleanupId: receipt.cleanupId })).status()).toBe(409);
   expect((await request.get(`${origin}/verify?client_id=n2c`, { headers })).status()).toBe(200);
+});
+
+test('whole-account deletion removes only the session owner and queues service cleanup', async ({ request }) => {
+  const ownerId = '00000000-0000-4000-8000-000000000079';
+  await db.query('INSERT INTO users (id) VALUES ($1)', [ownerId]);
+  await db.query("INSERT INTO identities (provider, provider_user_id, user_id) VALUES ('google', 'deletion-user', $1)", [ownerId]);
+  await memberships.ensure(ownerId, 'n2c');
+  await memberships.ensure(ownerId, 'other');
+  const firstSid = await sessions.create(ownerId, {});
+  const secondSid = await sessions.create(ownerId, {});
+  const post = (cookie: string, csrf = 'proof') => request.post(`${origin}/account/delete`, {
+    headers: { cookie, 'x-csrf-token': csrf, origin },
+    data: { userId },
+  });
+  const protectedAccount = (sid: string) => request.get(`${origin}/account`, { headers: { cookie: `sid=${sid}` } });
+
+  expect((await post('csrf=proof')).status()).toBe(401);
+  expect((await post(`sid=${firstSid}; csrf=proof`, 'wrong')).status()).toBe(403);
+  expect((await protectedAccount(firstSid)).status()).toBe(200);
+  expect(await users.listDeletions('n2c')).toEqual([]);
+  expect((await post(`sid=${firstSid}; csrf=proof`)).status()).toBe(204);
+
+  expect(await users.findById(ownerId)).toBeNull();
+  expect(await users.identities(ownerId)).toEqual([]);
+  expect(await memberships.listForUser(ownerId)).toEqual([]);
+  expect(await sessions.get(firstSid)).toBeNull();
+  expect(await sessions.get(secondSid)).toBeNull();
+  expect((await protectedAccount(secondSid)).status()).toBe(401);
+  expect(await users.listDeletions('n2c')).toEqual([{ userId: ownerId, requestedAt: expect.any(String) }]);
+  expect(await users.listDeletions('other')).toEqual([{ userId: ownerId, requestedAt: expect.any(String) }]);
+  expect((await protectedAccount(sid)).status()).toBe(200);
+  expect(await users.identities(userId)).toHaveLength(1);
+  expect(await memberships.listForUser(userId)).toHaveLength(2);
 });
