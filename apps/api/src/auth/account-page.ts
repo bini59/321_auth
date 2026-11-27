@@ -190,22 +190,89 @@ function sessionsCard(sessions: AccountSessionView[], csrfQuery: string): string
 const DELETE_CSS = `.delete-dialog{width:min(520px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel);color:var(--fg);padding:24px}
 .delete-dialog::backdrop{background:rgba(0,0,0,.6)}
 .delete-dialog h2{margin:0 0 12px}.delete-dialog ul{padding-left:22px;line-height:1.6}.delete-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:20px}
+.delete-actions .btn:disabled{opacity:.5;cursor:default}
 .delete-complete{padding:24px}.delete-complete h1{margin-top:0}`;
 
-const DELETE_SCRIPT = `(function(){var open=document.querySelector('[data-delete-open]');var dialog=document.querySelector('[data-delete-dialog]');if(!open||!dialog||!dialog.showModal)return;var cancel=dialog.querySelector('[data-delete-cancel]');var confirm=dialog.querySelector('[data-delete-confirm]');var error=dialog.querySelector('[data-delete-error]');var busy=false;
-open.addEventListener('click',function(){error.hidden=true;dialog.showModal();cancel.focus();});
-dialog.addEventListener('cancel',function(e){if(busy)e.preventDefault();});
-dialog.addEventListener('close',function(){open.focus();});
-cancel.addEventListener('click',function(){if(!busy)dialog.close();});
-confirm.addEventListener('click',function(){if(busy)return;busy=true;confirm.disabled=true;cancel.disabled=true;error.hidden=true;
-fetch('/account/delete',{method:'POST',credentials:'same-origin',headers:{'x-csrf-token':dialog.getAttribute('data-csrf')}}).then(function(r){if(r.status===204){dialog.close();var topbar=document.querySelector('.topbar');if(topbar)topbar.remove();document.querySelector('main').innerHTML='<section class="card delete-complete"><h1 tabindex="-1">전체 계정 탈퇴가 완료되었습니다</h1><p>공통 계정이 삭제되고 모든 기기에서 로그아웃되었습니다. 연동 서비스의 로컬 데이터는 각 서비스의 삭제 큐 처리에 따라 정리됩니다.</p><p>외부 서비스의 원본 데이터는 삭제되지 않습니다.</p></section>';document.querySelector('main h1').focus();return;}throw new Error('uncertain');}).catch(function(){error.textContent='탈퇴 결과를 확인할 수 없습니다. 세션 만료, 통신 또는 서버 오류일 수 있습니다. 다시 로그인하거나 재가입하지 말고 서비스 운영자에게 결과 확인을 문의해주세요.';error.hidden=false;error.focus();}).finally(function(){busy=false;confirm.disabled=false;cancel.disabled=false;});});})();`;
+const DELETE_SCRIPT = `(function(){
+  var open = document.querySelector('[data-delete-open]');
+  var dialog = document.querySelector('[data-delete-dialog]');
+  if (!open || !dialog || !dialog.showModal) return;
+  var cancel = dialog.querySelector('[data-delete-cancel]');
+  var confirm = dialog.querySelector('[data-delete-confirm]');
+  var progress = dialog.querySelector('[data-delete-progress]');
+  var error = dialog.querySelector('[data-delete-error]');
+  var busy = false;
+
+  open.addEventListener('click', function(){
+    dialog.showModal();
+    (error.hidden ? cancel : error).focus();
+  });
+  dialog.addEventListener('cancel', function(event){
+    if (busy) event.preventDefault();
+  });
+  dialog.addEventListener('close', function(){ open.focus(); });
+  cancel.addEventListener('click', function(){ if (!busy) dialog.close(); });
+
+  confirm.addEventListener('click', async function(){
+    if (confirm.disabled) return;
+    busy = true;
+    confirm.disabled = true;
+    cancel.disabled = true;
+    progress.textContent = '탈퇴 요청을 처리하고 있습니다.';
+    progress.focus();
+    var controller = new AbortController();
+    var timeout = setTimeout(function(){ controller.abort(); }, 30000);
+
+    try {
+      var response = await fetch('/account/delete', {
+        method: 'POST',
+        credentials: 'same-origin',
+        redirect: 'error',
+        headers: { 'x-csrf-token': dialog.getAttribute('data-csrf') },
+        signal: controller.signal
+      });
+      if (response.status === 403) {
+        error.textContent = '보안 확인에 실패했습니다. 계정센터를 새로고침한 뒤 다시 시도해주세요.';
+      }
+      if (response.status !== 204) throw new Error('uncertain');
+    } catch {
+      cancel.textContent = '닫기';
+      error.hidden = false;
+    } finally {
+      clearTimeout(timeout);
+      busy = false;
+      cancel.disabled = false;
+      progress.textContent = '';
+    }
+
+    if (!error.hidden) {
+      error.focus();
+      return;
+    }
+
+    dialog.close();
+    var topbar = document.querySelector('.topbar');
+    if (topbar) topbar.remove();
+    var main = document.querySelector('main');
+    main.replaceChildren(document.querySelector('[data-delete-complete]').content.cloneNode(true));
+    document.title = '전체 계정 탈퇴 완료 · bini59.dev';
+    main.querySelector('h1').focus();
+  });
+})();`;
 
 function deleteCard(csrf: string): string {
   return `<section class="card"><div class="card-head">전체 계정 탈퇴</div><div class="card-body"><p>모든 bini59.dev 서비스에 사용하는 공통 계정을 삭제합니다.</p><button class="btn btn--danger" type="button" data-delete-open>전체 계정 탈퇴</button></div></section>
 <dialog class="delete-dialog" data-delete-dialog data-csrf="${escapeHtml(csrf)}" aria-labelledby="delete-title" aria-describedby="delete-description">
 <h2 id="delete-title">전체 계정을 탈퇴하시겠습니까?</h2><p id="delete-description">최종 확인을 누르면 다음 작업이 진행됩니다.</p>
 <ul><li>bini59.dev 공통 계정, 연결된 로그인 정보와 모든 서비스의 회원 자격이 삭제됩니다.</li><li>모든 기기에서 로그아웃됩니다.</li><li>연동 서비스의 로컬 데이터는 각 서비스가 삭제 큐를 처리하면서 비동기적으로 정리됩니다.</li><li>Notion 원본 등 외부 서비스의 원본 데이터는 삭제되지 않습니다.</li><li>삭제된 계정 정보는 복구할 수 없습니다.</li></ul>
-<p class="alert alert--error" role="alert" tabindex="-1" data-delete-error hidden></p><div class="delete-actions"><button class="btn" type="button" data-delete-cancel>취소</button><button class="btn btn--danger" type="button" data-delete-confirm>최종 탈퇴 확인</button></div></dialog>`;
+<p role="status" tabindex="-1" data-delete-progress></p>
+<p class="alert alert--error" role="alert" tabindex="-1" data-delete-error hidden>탈퇴 결과를 확인할 수 없습니다. 세션 만료, 통신 또는 서버 오류일 수 있습니다. 다시 로그인하기 전에 서비스 운영자에게 탈퇴 결과를 문의해주세요.</p>
+<div class="delete-actions"><button class="btn" type="button" data-delete-cancel>취소</button><button class="btn btn--danger" type="button" data-delete-confirm>최종 탈퇴 확인</button></div></dialog>
+<template data-delete-complete><section class="card delete-complete">
+<h1 tabindex="-1">전체 계정 탈퇴가 완료되었습니다</h1>
+<p>공통 계정이 삭제되고 모든 기기에서 로그아웃되었습니다. 연동 서비스의 로컬 데이터는 각 서비스의 삭제 큐 처리에 따라 정리됩니다.</p>
+<p>외부 서비스의 원본 데이터는 삭제되지 않습니다.</p>
+</section></template>`;
 }
 
 export function renderAccountPage(account: AccountPageData, csrf: string, nonce = ''): string {
